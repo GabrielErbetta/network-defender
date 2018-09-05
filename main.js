@@ -6,7 +6,8 @@ var TILE     = 4,                 // the size of each tile (in game pixels)
     MAXDX    = METER * 20,         // max horizontal speed (20 tiles per second)
     MAXDY    = METER * 100,         // max vertical speed   (60 tiles per second)
     ACCEL    = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
-    PSIZE    = 5;              // horizontal acceleration -  take 1/2 second to reach maxdx
+    PSIZE    = 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
+    COLOR  = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', YELLOW: '#FFE83D'/*, BLUE: '#6AD8D3'*/ };
 
 var canvas   = document.getElementById('canvas'),
     ctx      = canvas.getContext('2d'),
@@ -14,7 +15,7 @@ var canvas   = document.getElementById('canvas'),
     height   = canvas.height = MAP.th * TILE,
     player   = { x: BORDER + 20, y: MAP.ph - BORDER - 20 - (TILE * PSIZE), hp: 100, angle: 45, power: 0 },
     enemy    = { x: MAP.pw - BORDER - 20 - (TILE * PSIZE), y: MAP.ph - BORDER - 20 - (TILE * PSIZE), hp: 100 },
-    bullet   = { x: -10, y: 0, dx: 0, dy: 0 },
+    bullet   = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 },
     started  = false,
     routers  = [
       { y: 0, damage: 10 },
@@ -27,7 +28,6 @@ var t2p = function(t) { return t*TILE; },
 
 var KEY    = { UP: 38, DOWN: 40, SPACE: 32 };
 
-var COLOR  = { BLACK: '#000000', GREEN: '#009933' /*, YELLOW: '#FFE83D', BLUE: '#6AD8D3'*/ };
 
 function timestamp() {
   if (window.performance && window.performance.now)
@@ -116,8 +116,10 @@ function render(ctx) {
     ctx.stroke();
 
     // render bullet
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(bullet.x - TILE / 4, bullet.y - TILE / 4, TILE * 2, TILE * 2);
+    if (bullet.active ||  true) {
+      ctx.fillStyle = bullet.color;
+      ctx.fillRect(bullet.x - TILE / 4, bullet.y - TILE / 4, TILE * 2, TILE * 2);
+    }
   }
 }
 
@@ -142,46 +144,107 @@ function onkey(ev, key, down) {
   }
 }
 
+function resetBullet() {
+  //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false };
+  bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
+}
+
+function fireBullet(x, y, dx, dy) {
+  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 0, active: true, shooter: 0 };
+}
+
+function collisionDetection() {
+  var center = {x: bullet.x + TILE, y: bullet.y + TILE};
+  var radius = TILE;
+
+  // detect collision with enemy
+  var c1 = center.x - (enemy.x + (PSIZE * TILE / 2));
+  var c2 = center.y - (enemy.y + (PSIZE * TILE / 2));
+  var distance = Math.sqrt(c1 ** 2 + c2 ** 2);
+
+  if (distance < (radius + PSIZE * TILE))
+    return true;
+
+  // detect collision with borders
+  if ((center.x < (BORDER + radius)) || (center.x > (MAP.pw - BORDER - radius)) ||
+      (center.y < (BORDER + radius)) || (center.y > (MAP.ph - BORDER - radius))) {
+    resetBullet();
+  }
+
+  /*  routers go here
+  for (i = 0; i < pipes.length; i++) {
+    pipe = pipes[i];
+
+    var pttl = [pipe.x, 0],
+        pttr = [pipe.x + (3 * TILE), 0],
+        ptbl = [pipe.x, (pipe.top + 1) * TILE],
+        ptbr = [pipe.x + (3 * TILE), (pipe.top + 1) * TILE];
+
+    var pbtl = [pipe.x, (pipe.top + 9) * TILE],
+        pbtr = [pipe.x + (3 * TILE), (pipe.top + 9) * TILE],
+        pbbl = [pipe.x, MAP.th * TILE],
+        pbbr = [pipe.x + (3 * TILE), MAP.th * TILE];
+
+    if ((tl[0] >= pttl[0] && tl[0] <= pttr[0] && tl[1] <= ptbl[1]) ||
+        (tr[0] >= pttl[0] && tr[0] <= pttr[0] && tr[1] <= ptbl[1]) ||
+        (bl[0] >= pbtl[0] && bl[0] <= pbtr[0] && bl[1] >= pbtl[1]) ||
+        (br[0] >= pbtl[0] && br[0] <= pttr[0] && br[1] >= pbtl[1])) {
+      pipe.scored = true;
+      return true;
+    }
+  }
+  */
+
+  return false;
+}
+
 function update(dt) {
-  // key presses
-  if (player.fire && !player.firing) {
-    player.power = 0;
-    player.firing = true;
-    console.log("power = " + player.power);
-  } else if (player.fire && player.power < 100) {
-    player.power += 1;
-    console.log("power = " + player.power);
+  if (bullet.active) {
+    // move bullet
+    bullet.y  = bullet.y  + (dt * bullet.dy);
+    bullet.x  = bullet.x  + (dt * bullet.dx);
+    bullet.dy = bullet.dy + (dt * GRAVITY);
+
+    if (collisionDetection()) {
+      console.log("ACERTOU!");
+      resetBullet();
+    }
   }
-  else if (!player.fire && player.firing) {
-    bullet.x  = player.x + (PSIZE * TILE / 4);
-    bullet.y  = player.y + (PSIZE * TILE / 4);
-    bullet.dx = (Math.cos(toRad(player.angle)) * player.power) * 5;
-    bullet.dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
+  // else {
+    // key presses
+    if (player.fire && !player.firing) {
+      player.power = 0;
+      player.firing = true;
+      //console.log("power = " + player.power);
+    } else if (player.fire && player.power < 100) {
+      player.power += 2.5;
+      //console.log("power = " + player.power);
+    }
+    else if (!player.fire && player.firing) {
+      var x  = player.x + (PSIZE * TILE / 4),
+          y  = player.y + (PSIZE * TILE / 4),
+          dx = (Math.cos(toRad(player.angle)) * player.power) * 5,
+          dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
 
-    console.log("power = " + player.power);
-    //console.log("angle = " + player.angle);
+      fireBullet(x, y, dx, dy);
 
-    console.log("dx = " + bullet.dx);
-    console.log("dy = " + bullet.dy);
+      //console.log("power = " + player.power);
 
-    player.power = 0;
-    player.firing = false;
-  }
-  else if (player.angleUp && player.angle <= 90) {
-    console.log("angle = " + player.angle);
-    player.angle += 1;
-  }
-  else if (player.angleDown && player.angle >= 0) {
-    console.log("angle = " + player.angle);
-    player.angle -= 1;
-  }
+      //console.log("dx = " + bullet.dx);
+      //console.log("dy = " + bullet.dy);
 
-
-  // move bullet
-  bullet.y  = bullet.y  + (dt * bullet.dy);
-  bullet.x  = bullet.x  + (dt * bullet.dx);
-  bullet.dy = bullet.dy + (dt * GRAVITY);
-  //bullet.dy = bound(bullet.dy + (dt * GRAVITY), -MAXDY, MAXDY);
+      player.power = 0;
+      player.firing = false;
+    }
+    else if (player.angleUp && player.angle <= 90) {
+      console.log("angle = " + player.angle);
+      player.angle += .5;
+    }
+    else if (player.angleDown && player.angle >= 0) {
+      console.log("angle = " + player.angle);
+      player.angle -= .5;
+    }
+  //}
 }
 
 function keyDown(ev) { return onkey(ev, ev.keyCode, true); }
