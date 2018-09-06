@@ -4,7 +4,7 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
     PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
     BSIZE   = 8
-    COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', YELLOW: '#FFE83D'/*, BLUE: '#6AD8D3'*/ },
+    COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00'/*, BLUE: '#6AD8D3'*/ },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 };
 
 var canvas  = document.getElementById('canvas'),
@@ -53,6 +53,8 @@ function frame() {
 }
 
 function render(ctx) {
+  ctx.clearRect(0,0,MAP.w,MAP.h); // clear canvas
+
   if (!started) {
     ctx.fillStyle = COLOR.GREEN;
     ctx.fillRect(0, 0, MAP.w, MAP.h);
@@ -90,6 +92,7 @@ function render(ctx) {
     ctx.arc(player.x, player.y, PSIZE, 0, 2*Math.PI);
     ctx.strokeStyle = COLOR.WHITE;
     ctx.lineWidth = 3;
+    ctx.closePath();
     ctx.stroke();
     //render shooting angle
     let x = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
@@ -97,6 +100,18 @@ function render(ctx) {
     ctx.strokeStyle = COLOR.WHITE;
     ctx.moveTo(x, y);
     ctx.lineTo(x + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), y + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
+    ctx.stroke();
+    // render hp
+    ctx.beginPath();
+    ctx.strokeStyle = COLOR.GREEN;
+    ctx.lineWidth = 3;
+    ctx.moveTo(player.x - PSIZE, player.y + PSIZE + 10);
+    ctx.lineTo(player.x - PSIZE + (PSIZE * 2 * player.hp / 100), player.y + PSIZE + 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.strokeStyle = COLOR.RED;
+    ctx.moveTo(player.x - PSIZE + (PSIZE * 2 * player.hp / 100), player.y + PSIZE + 10);
+    ctx.lineTo(player.x - PSIZE + (PSIZE * 2 * player.hp / 100) + (PSIZE * 2 * (100 - player.hp) / 100), player.y + PSIZE + 10);
     ctx.stroke();
 
     // render enemy
@@ -107,12 +122,27 @@ function render(ctx) {
     ctx.arc(enemy.x, enemy.y, PSIZE, 0, 2*Math.PI);
     ctx.strokeStyle = COLOR.WHITE;
     ctx.lineWidth = 3;
+    ctx.closePath();
+    ctx.stroke();
+    // render hp
+    ctx.beginPath();
+    ctx.strokeStyle = COLOR.GREEN;
+    ctx.lineWidth = 3;
+    ctx.moveTo(enemy.x - PSIZE, enemy.y + PSIZE + 10);
+    ctx.lineTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100), enemy.y + PSIZE + 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.strokeStyle = COLOR.RED;
+    ctx.moveTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100), enemy.y + PSIZE + 10);
+    ctx.lineTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100) + (PSIZE * 2 * (100 - enemy.hp) / 100), enemy.y + PSIZE + 10);
     ctx.stroke();
 
     // render bullet
-    if (bullet.active ||  true) {
+    if (bullet.active || true) {
+      ctx.beginPath();
+      ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
       ctx.fillStyle = bullet.color;
-      ctx.fillRect(bullet.x - (BSIZE / 2), bullet.y - (BSIZE / 2), BSIZE, BSIZE);
+      ctx.fill();
     }
   }
 }
@@ -126,8 +156,18 @@ function start() {
   document.addEventListener('keyup',   keyUp, false);
 
   started = true;
-  score = 0;
   now = last = timestamp();
+}
+
+function restart() {
+  document.removeEventListener('keydown', keyDown);
+  document.removeEventListener('keyup',   keyUp);
+  document.addEventListener('keypress', spaceStart, false);
+
+  started = false;
+  player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 };
+  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100 };
+  bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
 }
 
 function onkey(ev, key, down) {
@@ -192,7 +232,11 @@ function collisionDetection() {
 }
 
 function update(dt) {
-  if (bullet.active) {
+  if (enemy.hp <= 0) {
+    alert("YOU WIN!");
+    restart();
+  }
+  else if (bullet.active) {
     // move bullet
     bullet.y  = bullet.y  + (dt * bullet.dy);
     bullet.x  = bullet.x  + (dt * bullet.dx);
@@ -200,6 +244,7 @@ function update(dt) {
 
     if (collisionDetection()) {
       console.log("ACERTOU!");
+      enemy.hp = Math.max(enemy.hp - 50, 0);
       resetBullet();
     }
   }
