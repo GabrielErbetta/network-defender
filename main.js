@@ -1,32 +1,25 @@
-var TILE     = 4,                 // the size of each tile (in game pixels)
-    MAP      = { tw: 300, th: 150, pw: 300 * TILE, ph: 150 * TILE }, // the size of the map (in tiles)
-    BORDER   = 20,                // the size of the border
-    METER    = TILE,               // abitrary choice for 1m
-    GRAVITY  = METER * 9.8 * 3,    // very exagerated gravity (6x)
-    MAXDX    = METER * 20,         // max horizontal speed (20 tiles per second)
-    MAXDY    = METER * 100,         // max vertical speed   (60 tiles per second)
-    ACCEL    = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
-    PSIZE    = 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
-    COLOR  = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', YELLOW: '#FFE83D'/*, BLUE: '#6AD8D3'*/ };
+var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
+    BORDER  = 20,                // the size of the border
+    GRAVITY = 9.8 * 12,    // very exagerated gravity (6x)
+    ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
+    PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
+    BSIZE   = 8
+    COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', YELLOW: '#FFE83D'/*, BLUE: '#6AD8D3'*/ },
+    KEY     = { UP: 38, DOWN: 40, SPACE: 32 };
 
-var canvas   = document.getElementById('canvas'),
-    ctx      = canvas.getContext('2d'),
-    width    = canvas.width  = MAP.tw * TILE,
-    height   = canvas.height = MAP.th * TILE,
-    player   = { x: BORDER + 20, y: MAP.ph - BORDER - 20 - (TILE * PSIZE), hp: 100, angle: 45, power: 0 },
-    enemy    = { x: MAP.pw - BORDER - 20 - (TILE * PSIZE), y: MAP.ph - BORDER - 20 - (TILE * PSIZE), hp: 100 },
-    bullet   = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 },
-    started  = false,
-    routers  = [
+var canvas  = document.getElementById('canvas'),
+    ctx     = canvas.getContext('2d'),
+    width   = canvas.width = MAP.w,
+    height  = canvas.height = MAP.h,
+    started = false,
+    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 },
+    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100 },
+    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 },
+    routers = [
       { y: 0, damage: 10 },
       { y: 0, damage: 20 },
       { y: 0, damage: 40 }
     ];
-
-var t2p = function(t) { return t*TILE; },
-    p2t = function(p) { return Math.floor(p/TILE); };
-
-var KEY    = { UP: 38, DOWN: 40, SPACE: 32 };
 
 
 function timestamp() {
@@ -62,63 +55,64 @@ function frame() {
 function render(ctx) {
   if (!started) {
     ctx.fillStyle = COLOR.GREEN;
-    ctx.fillRect(0, 0, MAP.tw * TILE, MAP.th * TILE);
+    ctx.fillRect(0, 0, MAP.w, MAP.h);
 
     ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(20, 20, (MAP.tw * TILE) - 40, (MAP.th * TILE) - 40);
+    ctx.fillRect(20, 20, (MAP.w) - 40, (MAP.h) - 40);
 
     ctx.font = "80px Arial";
-    ctx.fillStyle = "white";
+    ctx.fillStyle = COLOR.WHITE;
     ctx.lineWidth = 3;
     ctx.strokeStyle = COLOR.GREEN;
     ctx.textAlign = "center";
-    ctx.fillText("Computer Cannon", MAP.tw * TILE / 2, MAP.th * TILE / 2);
-    ctx.strokeText("Computer Cannon", MAP.tw * TILE / 2, MAP.th * TILE / 2);
+    ctx.fillText("Router Shootout", MAP.w / 2, MAP.h / 2);
+    ctx.strokeText("Router Shootout", MAP.w / 2, MAP.h / 2);
   } else {
-    // render background
+    // render border
     ctx.fillStyle = COLOR.GREEN;
-    ctx.fillRect(0, 0, MAP.tw * TILE, MAP.th * TILE);
+    ctx.fillRect(0, 0, MAP.w, MAP.h);
 
+    // render background
     ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(20, 20, (MAP.tw * TILE) - 40, (MAP.th * TILE) - 40);
+    ctx.fillRect(20, 20, (MAP.w) - 40, (MAP.h) - 40);
 
     // render center line
-    ctx.strokeStyle = "#FFFFFF";
-    ctx.moveTo(MAP.pw / 2, 0);
-    ctx.lineTo(MAP.pw / 2, MAP.ph);
+    ctx.strokeStyle = COLOR.WHITE;
+    ctx.moveTo(MAP.w / 2, 0);
+    ctx.lineTo(MAP.w / 2, MAP.h);
     ctx.stroke();
 
     // render player
     ctx.fillStyle = COLOR.GREEN;
-    ctx.fillRect(player.x, player.y, TILE * PSIZE, TILE * PSIZE);
+    ctx.fillRect(player.x - PSIZE / 2, player.y - (PSIZE / 2), PSIZE, PSIZE);
     // render firewall
     ctx.beginPath();
-    ctx.arc(player.x + (PSIZE * TILE / 2), player.y + (PSIZE * TILE / 2), PSIZE * TILE, 0, 2*Math.PI);
-    ctx.strokeStyle = "#FFFFFF";
+    ctx.arc(player.x, player.y, PSIZE, 0, 2*Math.PI);
+    ctx.strokeStyle = COLOR.WHITE;
     ctx.lineWidth = 3;
     ctx.stroke();
     //render shooting angle
-    var x = (player.x + (PSIZE * TILE / 2)) + (PSIZE * TILE) * Math.cos(toRad(360 - player.angle));
-    var y = (player.y + (PSIZE * TILE / 2)) + (PSIZE * TILE) * Math.sin(toRad(360 - player.angle));
-    ctx.strokeStyle = "#FFFFFF";
+    let x = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
+    let y = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
+    ctx.strokeStyle = COLOR.WHITE;
     ctx.moveTo(x, y);
     ctx.lineTo(x + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), y + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
     ctx.stroke();
 
     // render enemy
     ctx.fillStyle = COLOR.GREEN;
-    ctx.fillRect(enemy.x, enemy.y, TILE * PSIZE, TILE * PSIZE);
+    ctx.fillRect(enemy.x - PSIZE / 2, enemy.y - (PSIZE / 2), PSIZE, PSIZE);
     // render firewall
     ctx.beginPath();
-    ctx.arc(enemy.x + (PSIZE * TILE / 2), enemy.y + (PSIZE * TILE / 2), PSIZE * TILE, 0, 2*Math.PI);
-    ctx.strokeStyle = "#FFFFFF";
+    ctx.arc(enemy.x, enemy.y, PSIZE, 0, 2*Math.PI);
+    ctx.strokeStyle = COLOR.WHITE;
     ctx.lineWidth = 3;
     ctx.stroke();
 
     // render bullet
     if (bullet.active ||  true) {
       ctx.fillStyle = bullet.color;
-      ctx.fillRect(bullet.x - TILE / 4, bullet.y - TILE / 4, TILE * 2, TILE * 2);
+      ctx.fillRect(bullet.x - (BSIZE / 2), bullet.y - (BSIZE / 2), BSIZE, BSIZE);
     }
   }
 }
@@ -154,20 +148,19 @@ function fireBullet(x, y, dx, dy) {
 }
 
 function collisionDetection() {
-  var center = {x: bullet.x + TILE, y: bullet.y + TILE};
-  var radius = TILE;
+  let bulletRadius = (BSIZE * 0.75);
 
   // detect collision with enemy
-  var c1 = center.x - (enemy.x + (PSIZE * TILE / 2));
-  var c2 = center.y - (enemy.y + (PSIZE * TILE / 2));
-  var distance = Math.sqrt(c1 ** 2 + c2 ** 2);
+  let c1 = bullet.x - enemy.x;
+  let c2 = bullet.y - enemy.y;
+  let distance = Math.sqrt(c1 ** 2 + c2 ** 2);
 
-  if (distance < (radius + PSIZE * TILE))
+  if (distance < bulletRadius + PSIZE)
     return true;
 
   // detect collision with borders
-  if ((center.x < (BORDER + radius)) || (center.x > (MAP.pw - BORDER - radius)) ||
-      (center.y < (BORDER + radius)) || (center.y > (MAP.ph - BORDER - radius))) {
+  if ((bullet.x < (BORDER + bulletRadius)) || (bullet.x > (MAP.w - BORDER - bulletRadius)) ||
+      (bullet.y < (BORDER + bulletRadius)) || (bullet.y > (MAP.h - BORDER - bulletRadius))) {
     resetBullet();
   }
 
@@ -182,8 +175,8 @@ function collisionDetection() {
 
     var pbtl = [pipe.x, (pipe.top + 9) * TILE],
         pbtr = [pipe.x + (3 * TILE), (pipe.top + 9) * TILE],
-        pbbl = [pipe.x, MAP.th * TILE],
-        pbbr = [pipe.x + (3 * TILE), MAP.th * TILE];
+        pbbl = [pipe.x, MAP.h],
+        pbbr = [pipe.x + (3 * TILE), MAP.h];
 
     if ((tl[0] >= pttl[0] && tl[0] <= pttr[0] && tl[1] <= ptbl[1]) ||
         (tr[0] >= pttl[0] && tr[0] <= pttr[0] && tr[1] <= ptbl[1]) ||
@@ -210,26 +203,23 @@ function update(dt) {
       resetBullet();
     }
   }
-  // else {
+  else {
     // key presses
     if (player.fire && !player.firing) {
       player.power = 0;
       player.firing = true;
       //console.log("power = " + player.power);
     } else if (player.fire && player.power < 100) {
-      player.power += 2.5;
+      player.power += 2;
       //console.log("power = " + player.power);
     }
     else if (!player.fire && player.firing) {
-      var x  = player.x + (PSIZE * TILE / 4),
-          y  = player.y + (PSIZE * TILE / 4),
-          dx = (Math.cos(toRad(player.angle)) * player.power) * 5,
-          dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
+      let dx = (Math.cos(toRad(player.angle)) * player.power) * 5;
+      let dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
 
-      fireBullet(x, y, dx, dy);
+      fireBullet(player.x, player.y, dx, dy);
 
       //console.log("power = " + player.power);
-
       //console.log("dx = " + bullet.dx);
       //console.log("dy = " + bullet.dy);
 
@@ -238,13 +228,13 @@ function update(dt) {
     }
     else if (player.angleUp && player.angle <= 90) {
       console.log("angle = " + player.angle);
-      player.angle += .5;
+      player.angle += 0.5;
     }
     else if (player.angleDown && player.angle >= 0) {
       console.log("angle = " + player.angle);
-      player.angle -= .5;
+      player.angle -= 0.5;
     }
-  //}
+  }
 }
 
 function keyDown(ev) { return onkey(ev, ev.keyCode, true); }
