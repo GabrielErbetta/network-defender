@@ -4,7 +4,7 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
     PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
     BSIZE   = 4,
-    COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00'/*, BLUE: '#6AD8D3'*/ },
+    COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00', YELLOW: '#FF0' },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 };
 
 var canvas  = document.getElementById('canvas'),
@@ -16,9 +16,9 @@ var canvas  = document.getElementById('canvas'),
     enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100 },
     bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 },
     routers = [
-      { y: 0, damage: 10 },
-      { y: 0, damage: 20 },
-      { y: 0, damage: 40 }
+      { y: 0, damage: 10, color: COLOR.GREEN, size: 40, active: false },
+      { y: 0, damage: 20, color: COLOR.YELLOW, size: 30, active: false },
+      { y: 0, damage: 40, color: COLOR.RED, size: 20, active: false }
     ];
 
 var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
@@ -151,13 +151,24 @@ function render(ctx) {
     ctx.lineTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100) + (PSIZE * 2 * (100 - enemy.hp) / 100), enemy.y + PSIZE + 10);
     ctx.stroke();
 
+    // render routers
+    for (let i = 0; i < routers.length; i++) {
+      if (routers[i].active) {
+        ctx.fillStyle = routers[i].color;
+        ctx.fillRect(MAP.w / 2 - routers[i].size / 2, routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
+      }
+    }
+
     // render bullet
     if (bullet.active || true) {
       ctx.beginPath();
       ctx.fillStyle = bullet.color;
+      ctx.strokeStyle = COLOR.WHITE
+      ctx.lineWidth = 1
       ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
       ctx.closePath();
       ctx.fill();
+      ctx.stroke();
     }
   }
 }
@@ -172,6 +183,7 @@ function start() {
 
   started = true;
   now = last = timestamp();
+  generateRouters();
 }
 
 function restart() {
@@ -196,10 +208,24 @@ function onkey(ev, key, down) {
 function resetBullet() {
   //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false };
   bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
+
+  generateRouters();
 }
 
 function fireBullet(x, y, dx, dy) {
   bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 0, active: true, shooter: 0 };
+}
+
+function generateRouters() {
+
+  for (let i = 0; i < routers.length; i++) {
+    let min = BORDER + routers[i].size + 10;
+    let max = MAP.h - BORDER - routers[i].size - 10;
+    let y = Math.floor(Math.random() * (max - min)) + min;
+
+    routers[i].y = y;
+    routers[i].active = true;
+  }
 }
 
 function collisionDetection() {
@@ -209,39 +235,31 @@ function collisionDetection() {
   let distance = Math.sqrt(c1 ** 2 + c2 ** 2);
 
   if (distance < BSIZE + PSIZE)
-    return true;
+    hitEnemy();
 
   // detect collision with borders
   if ((bullet.x < (BORDER + BSIZE)) || (bullet.x > (MAP.w - BORDER - BSIZE)) ||
       (bullet.y < (BORDER + BSIZE)) || (bullet.y > (MAP.h - BORDER - BSIZE))) {
-    resetBullet();
+    miss();
   }
 
-  /*  routers go here
-  for (i = 0; i < pipes.length; i++) {
-    pipe = pipes[i];
+  // detect collision with routers
+  for (let i = 0; i < routers.length; i++) {
+    // c1 = bullet.x - (MAP.w / 2);
+    // c2 = bullet.y - routers[i].y;
+    // distance = Math.sqrt(c1 ** 2 + c2 ** 2);
 
-    var pttl = [pipe.x, 0],
-        pttr = [pipe.x + (3 * TILE), 0],
-        ptbl = [pipe.x, (pipe.top + 1) * TILE],
-        ptbr = [pipe.x + (3 * TILE), (pipe.top + 1) * TILE];
+    // if (distance < BSIZE + routers[i].size)
 
-    var pbtl = [pipe.x, (pipe.top + 9) * TILE],
-        pbtr = [pipe.x + (3 * TILE), (pipe.top + 9) * TILE],
-        pbbl = [pipe.x, MAP.h],
-        pbbr = [pipe.x + (3 * TILE), MAP.h];
+    // DeltaX = CircleX - Max(RectX, Min(CircleX, RectX + RectWidth));
+    // DeltaY = CircleY - Max(RectY, Min(CircleY, RectY + RectHeight));
+    // return (DeltaX * DeltaX + DeltaY * DeltaY) < (CircleRadius * CircleRadius);
 
-    if ((tl[0] >= pttl[0] && tl[0] <= pttr[0] && tl[1] <= ptbl[1]) ||
-        (tr[0] >= pttl[0] && tr[0] <= pttr[0] && tr[1] <= ptbl[1]) ||
-        (bl[0] >= pbtl[0] && bl[0] <= pbtr[0] && bl[1] >= pbtl[1]) ||
-        (br[0] >= pbtl[0] && br[0] <= pttr[0] && br[1] >= pbtl[1])) {
-      pipe.scored = true;
-      return true;
-    }
+    c1 = bullet.x - Math.max(MAP.w / 2 - routers[i].size / 2, Math.min(bullet.x, MAP.w / 2 + routers[i].size / 2));
+    c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
+    if ((c1 ** 2 + c2 ** 2) < (BSIZE ** 2))
+      hitRouter(i);
   }
-  */
-
-  return false;
 }
 
 function update(dt) {
@@ -255,11 +273,7 @@ function update(dt) {
     bullet.x  = bullet.x  + (dt * bullet.dx);
     bullet.dy = bullet.dy + (dt * GRAVITY);
 
-    if (collisionDetection()) {
-      console.log("ACERTOU!");
-      enemy.hp = Math.max(enemy.hp - 50, 0);
-      resetBullet();
-    }
+    collisionDetection();
   }
   else {
     // key presses
@@ -295,6 +309,23 @@ function update(dt) {
   }
 }
 
+function miss() {
+  resetBullet();
+}
+
+function hitEnemy() {
+  console.log("ACERTOU!");
+  enemy.hp = Math.max(enemy.hp - bullet.damage, 0);
+  resetBullet();
+}
+
+function hitRouter(i) {
+  if (routers[i].damage > bullet.damage) {
+    bullet.damage = routers[i].damage;
+    bullet.color = routers[i].color;
+  }
+}
+
 function keyDown(ev) { return onkey(ev, ev.keyCode, true); }
 function keyUp(ev) { return onkey(ev, ev.keyCode, false); }
 
@@ -302,8 +333,19 @@ function spaceStart(ev) {
   if (ev.keyCode == KEY.SPACE) {
     document.removeEventListener('keypress', spaceStart);
     start();
+      // canvas.addEventListener('mousemove', function(evt) {
+      //   getMousePos(canvas, evt);
+      // }, false);
   }
 }
 
 document.addEventListener('keypress', spaceStart, false);
 frame(); // start the first frame
+
+
+      // function getMousePos(canvas, evt) {
+      //   var rect = canvas.getBoundingClientRect();
+      //   bullet.x = evt.clientX - rect.left;
+      //   bullet.y = evt.clientY - rect.top;
+      // }
+
