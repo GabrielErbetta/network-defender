@@ -3,7 +3,7 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     GRAVITY = 9.8 * 12,    // very exagerated gravity (6x)
     ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
     PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
-    BSIZE   = 8
+    BSIZE   = 4,
     COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00'/*, BLUE: '#6AD8D3'*/ },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 };
 
@@ -20,6 +20,10 @@ var canvas  = document.getElementById('canvas'),
       { y: 0, damage: 20 },
       { y: 0, damage: 40 }
     ];
+
+var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
+    gradient.addColorStop(0, '#000');
+    gradient.addColorStop(1, '#0f9b0f');
 
 
 function timestamp() {
@@ -56,7 +60,7 @@ function render(ctx) {
   ctx.clearRect(0,0,MAP.w,MAP.h); // clear canvas
 
   if (!started) {
-    ctx.fillStyle = COLOR.GREEN;
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, MAP.w, MAP.h);
 
     ctx.fillStyle = COLOR.BLACK;
@@ -69,9 +73,17 @@ function render(ctx) {
     ctx.textAlign = "center";
     ctx.fillText("Router Shootout", MAP.w / 2, MAP.h / 2);
     ctx.strokeText("Router Shootout", MAP.w / 2, MAP.h / 2);
+
+    ctx.font = "40px Arial";
+    ctx.fillStyle = COLOR.WHITE;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = COLOR.GREEN;
+    ctx.textAlign = "center";
+    ctx.fillText("Space to Start", MAP.w / 2, MAP.h / 2 + 120);
+    ctx.strokeText("Space to Start", MAP.w / 2, MAP.h / 2 + 120);
   } else {
     // render border
-    ctx.fillStyle = COLOR.GREEN;
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, MAP.w, MAP.h);
 
     // render background
@@ -79,6 +91,7 @@ function render(ctx) {
     ctx.fillRect(20, 20, (MAP.w) - 40, (MAP.h) - 40);
 
     // render center line
+    ctx.beginPath();
     ctx.strokeStyle = COLOR.WHITE;
     ctx.moveTo(MAP.w / 2, 0);
     ctx.lineTo(MAP.w / 2, MAP.h);
@@ -90,13 +103,14 @@ function render(ctx) {
     // render firewall
     ctx.beginPath();
     ctx.arc(player.x, player.y, PSIZE, 0, 2*Math.PI);
-    ctx.strokeStyle = COLOR.WHITE;
+    ctx.strokeStyle = COLOR.RED;
     ctx.lineWidth = 3;
     ctx.closePath();
     ctx.stroke();
     //render shooting angle
     let x = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
     let y = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
+    ctx.beginPath();
     ctx.strokeStyle = COLOR.WHITE;
     ctx.moveTo(x, y);
     ctx.lineTo(x + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), y + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
@@ -120,7 +134,7 @@ function render(ctx) {
     // render firewall
     ctx.beginPath();
     ctx.arc(enemy.x, enemy.y, PSIZE, 0, 2*Math.PI);
-    ctx.strokeStyle = COLOR.WHITE;
+    ctx.strokeStyle = COLOR.RED;
     ctx.lineWidth = 3;
     ctx.closePath();
     ctx.stroke();
@@ -140,8 +154,9 @@ function render(ctx) {
     // render bullet
     if (bullet.active || true) {
       ctx.beginPath();
-      ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
       ctx.fillStyle = bullet.color;
+      ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
+      ctx.closePath();
       ctx.fill();
     }
   }
@@ -188,19 +203,17 @@ function fireBullet(x, y, dx, dy) {
 }
 
 function collisionDetection() {
-  let bulletRadius = (BSIZE * 0.75);
-
   // detect collision with enemy
   let c1 = bullet.x - enemy.x;
   let c2 = bullet.y - enemy.y;
   let distance = Math.sqrt(c1 ** 2 + c2 ** 2);
 
-  if (distance < bulletRadius + PSIZE)
+  if (distance < BSIZE + PSIZE)
     return true;
 
   // detect collision with borders
-  if ((bullet.x < (BORDER + bulletRadius)) || (bullet.x > (MAP.w - BORDER - bulletRadius)) ||
-      (bullet.y < (BORDER + bulletRadius)) || (bullet.y > (MAP.h - BORDER - bulletRadius))) {
+  if ((bullet.x < (BORDER + BSIZE)) || (bullet.x > (MAP.w - BORDER - BSIZE)) ||
+      (bullet.y < (BORDER + BSIZE)) || (bullet.y > (MAP.h - BORDER - BSIZE))) {
     resetBullet();
   }
 
