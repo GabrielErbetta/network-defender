@@ -4,6 +4,8 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
     PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
     BSIZE   = 4,
+    PLAYER  = 1,
+    ENEMY   = 2,
     COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00', YELLOW: '#FF0' },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 };
 
@@ -12,9 +14,12 @@ var canvas  = document.getElementById('canvas'),
     width   = canvas.width = MAP.w,
     height  = canvas.height = MAP.h,
     started = false,
+    round   = 0,
+    turn    = null,
     player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 },
-    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100 },
-    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 },
+    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 },
+    e_shot  = { angle: 0, power: 0}
+    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 1 },
     routers = [
       { y: 0, damage: 10, color: COLOR.GREEN, size: 40, active: false },
       { y: 0, damage: 20, color: COLOR.YELLOW, size: 30, active: false },
@@ -108,12 +113,12 @@ function render(ctx) {
     ctx.closePath();
     ctx.stroke();
     //render shooting angle
-    let x = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
-    let y = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
+    let px = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
+    let py = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
     ctx.beginPath();
     ctx.strokeStyle = COLOR.WHITE;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), y + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), py + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
     ctx.stroke();
     // render hp
     ctx.beginPath();
@@ -137,6 +142,14 @@ function render(ctx) {
     ctx.strokeStyle = COLOR.RED;
     ctx.lineWidth = 3;
     ctx.closePath();
+    ctx.stroke();
+    //render shooting angle
+    let ex = enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle));
+    let ey = enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle));
+    ctx.beginPath();
+    ctx.strokeStyle = COLOR.WHITE;
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex + (10 + enemy.power / 5) * Math.cos(toRad(360 - enemy.angle)), ey + (10 + enemy.power / 5) * Math.sin(toRad(360 - enemy.angle)));
     ctx.stroke();
     // render hp
     ctx.beginPath();
@@ -183,7 +196,7 @@ function start() {
 
   started = true;
   now = last = timestamp();
-  generateRouters();
+  nextRound();
 }
 
 function restart() {
@@ -193,9 +206,26 @@ function restart() {
 
   started = false;
   player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 };
-  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100 };
+  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 };
   bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
 }
+
+function nextRound() {
+  round++;
+  turn = PLAYER;
+
+  resetBullet();
+  generateRouters();
+}
+
+function enemyTurn() {
+  turn = ENEMY;
+  e_shot.angle = Math.floor(Math.random() * (170 - 102)) + 102;
+  e_shot.power = Math.floor(Math.random() * (100 - 25)) + 25;
+
+  resetBullet();
+}
+
 
 function onkey(ev, key, down) {
   switch(key) {
@@ -208,12 +238,10 @@ function onkey(ev, key, down) {
 function resetBullet() {
   //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false };
   bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
-
-  generateRouters();
 }
 
-function fireBullet(x, y, dx, dy) {
-  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 0, active: true, shooter: 0 };
+function fireBullet(shooter, x, y, dx, dy) {
+  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 0, active: true, shooter: shooter };
 }
 
 function generateRouters() {
@@ -230,33 +258,38 @@ function generateRouters() {
 
 function collisionDetection() {
   // detect collision with enemy
-  let c1 = bullet.x - enemy.x;
-  let c2 = bullet.y - enemy.y;
-  let distance = Math.sqrt(c1 ** 2 + c2 ** 2);
+  if (bullet.shooter == PLAYER) {
+    let c1 = bullet.x - enemy.x;
+    let c2 = bullet.y - enemy.y;
 
-  if (distance < BSIZE + PSIZE)
-    hitEnemy();
+    if (c1 ** 2 + c2 ** 2 < (BSIZE + PSIZE)**2) {
+      hitEnemy();
+      return;
+    }
+  }
+
+  // detect collision with player
+  if (bullet.shooter == ENEMY) {
+    let c1 = bullet.x - player.x;
+    let c2 = bullet.y - player.y;
+
+    if (c1 ** 2 + c2 ** 2 < (BSIZE + PSIZE)**2) {
+      hitPlayer();
+      return;
+    }
+  }
 
   // detect collision with borders
   if ((bullet.x < (BORDER + BSIZE)) || (bullet.x > (MAP.w - BORDER - BSIZE)) ||
       (bullet.y < (BORDER + BSIZE)) || (bullet.y > (MAP.h - BORDER - BSIZE))) {
     miss();
+    return;
   }
 
   // detect collision with routers
   for (let i = 0; i < routers.length; i++) {
-    // c1 = bullet.x - (MAP.w / 2);
-    // c2 = bullet.y - routers[i].y;
-    // distance = Math.sqrt(c1 ** 2 + c2 ** 2);
-
-    // if (distance < BSIZE + routers[i].size)
-
-    // DeltaX = CircleX - Max(RectX, Min(CircleX, RectX + RectWidth));
-    // DeltaY = CircleY - Max(RectY, Min(CircleY, RectY + RectHeight));
-    // return (DeltaX * DeltaX + DeltaY * DeltaY) < (CircleRadius * CircleRadius);
-
-    c1 = bullet.x - Math.max(MAP.w / 2 - routers[i].size / 2, Math.min(bullet.x, MAP.w / 2 + routers[i].size / 2));
-    c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
+    let c1 = bullet.x - Math.max(MAP.w / 2 - routers[i].size / 2, Math.min(bullet.x, MAP.w / 2 + routers[i].size / 2));
+    let c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
     if ((c1 ** 2 + c2 ** 2) < (BSIZE ** 2))
       hitRouter(i);
   }
@@ -264,59 +297,81 @@ function collisionDetection() {
 
 function update(dt) {
   if (enemy.hp <= 0) {
+    // enemy dead
     alert("YOU WIN!");
     restart();
-  }
-  else if (bullet.active) {
+  } else if (player.hp <= 0) {
+    // player dead
+    alert("YOU LOSE!");
+    restart();
+  } else if (bullet.active) {
+    // bullet fired
     // move bullet
     bullet.y  = bullet.y  + (dt * bullet.dy);
     bullet.x  = bullet.x  + (dt * bullet.dx);
     bullet.dy = bullet.dy + (dt * GRAVITY);
 
     collisionDetection();
-  }
-  else {
-    // key presses
-    if (player.fire && !player.firing) {
-      player.power = 0;
-      player.firing = true;
-      //console.log("power = " + player.power);
-    } else if (player.fire && player.power < 100) {
-      player.power += 2;
-      //console.log("power = " + player.power);
+  } else {
+    if (turn == PLAYER) {
+      // player turn
+      if (player.fire && !player.firing) {
+        // start firing
+        player.power = 0;
+        player.firing = true;
+      } else if (player.fire && player.power < 100) {
+        // continue firing
+        player.power += 2;
+      }
+      else if (!player.fire && player.firing) {
+        // finish firing
+        let dx = (Math.cos(toRad(player.angle)) * player.power) * 5;
+        let dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
+        fireBullet(PLAYER, player.x, player.y, dx, dy);
+
+        player.power = 0;
+        player.firing = false;
+      }
+    } else {
+      // enemy turn
+      if (enemy.angle < e_shot.angle) {
+        enemy.angle += 0.5;
+      } else if (enemy.angle > e_shot.angle) {
+        enemy.angle -= 0.5;
+      } else {
+        if (enemy.power < e_shot.power) {
+          enemy.power += 2;
+        } else {
+          let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 5;
+          let dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 5;
+          fireBullet(ENEMY, enemy.x, enemy.y, dx, dy);
+
+          enemy.power = 0;
+        }
+      }
     }
-    else if (!player.fire && player.firing) {
-      let dx = (Math.cos(toRad(player.angle)) * player.power) * 5;
-      let dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
-
-      fireBullet(player.x, player.y, dx, dy);
-
-      //console.log("power = " + player.power);
-      //console.log("dx = " + bullet.dx);
-      //console.log("dy = " + bullet.dy);
-
-      player.power = 0;
-      player.firing = false;
-    }
-    else if (player.angleUp && player.angle <= 90) {
-      console.log("angle = " + player.angle);
+    // move angle
+    if (player.angleUp && player.angle <= 90) {
       player.angle += 0.5;
     }
     else if (player.angleDown && player.angle >= 0) {
-      console.log("angle = " + player.angle);
       player.angle -= 0.5;
     }
   }
 }
 
 function miss() {
-  resetBullet();
+  bullet.shooter == PLAYER ? enemyTurn() : nextRound();
 }
 
 function hitEnemy() {
-  console.log("ACERTOU!");
   enemy.hp = Math.max(enemy.hp - bullet.damage, 0);
-  resetBullet();
+  enemyTurn();
+}
+
+function hitPlayer() {
+  player.hp = Math.max(player.hp - bullet.damage, 0);
+  nextRound();
 }
 
 function hitRouter(i) {
