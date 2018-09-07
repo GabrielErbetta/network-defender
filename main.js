@@ -18,12 +18,13 @@ var canvas  = document.getElementById('canvas'),
     turn    = null,
     player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 },
     enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 },
-    e_shot  = { angle: 0, power: 0}
+    e_shot  = { angle: 0, power: 0 }
     bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 1 },
+    curves  = [],
     routers = [
-      { y: 0, damage: 10, color: COLOR.GREEN, size: 40, active: false },
-      { y: 0, damage: 20, color: COLOR.YELLOW, size: 30, active: false },
-      { y: 0, damage: 40, color: COLOR.RED, size: 20, active: false }
+      { x: 0, y: 0, angle: 0, power: 0, damage: 10, color: COLOR.GREEN, size: 40, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 20, color: COLOR.YELLOW, size: 30, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 40, color: COLOR.RED, size: 20, active: false }
     ];
 
 var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
@@ -102,6 +103,24 @@ function render(ctx) {
     ctx.lineTo(MAP.w / 2, MAP.h);
     ctx.stroke();
 
+    //render shooting lines
+    for (let i = 0; i < routers.length; i++) {
+      if (routers[i].active) {
+        ctx.beginPath();
+        ctx.moveTo(player.x, player.y);
+
+        for(var x = 0 + 1; x <= enemy.x - player.x; x += 1) {
+          hy = Math.tan(toRad(routers[i].angle)) * x - (GRAVITY / (2 * (routers[i].power * 5)**2 * Math.cos(toRad(routers[i].angle))**2)) * x**2;
+          ctx.lineTo(x + player.x, (MAP.h - hy) - (MAP.h - player.y));
+        }
+
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = routers[i].color;
+        ctx.stroke();
+      }
+    }
+
     // render player
     ctx.fillStyle = COLOR.GREEN;
     ctx.fillRect(player.x - PSIZE / 2, player.y - (PSIZE / 2), PSIZE, PSIZE);
@@ -168,8 +187,8 @@ function render(ctx) {
     for (let i = 0; i < routers.length; i++) {
       if (routers[i].active) {
         ctx.fillStyle = routers[i].color;
-        ctx.fillRect(MAP.w / 2 - routers[i].size / 2, routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
-      }
+        ctx.fillRect(routers[i].x - (routers[i].size / 2), routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
+      };
     }
 
     // render bullet
@@ -196,6 +215,7 @@ function start() {
 
   started = true;
   now = last = timestamp();
+  generateRouters();
   nextRound();
 }
 
@@ -215,13 +235,14 @@ function nextRound() {
   turn = PLAYER;
 
   resetBullet();
-  generateRouters();
+  //generateRouters();
 }
 
 function enemyTurn() {
   turn = ENEMY;
-  e_shot.angle = Math.floor(Math.random() * (170 - 102)) + 102;
-  e_shot.power = Math.floor(Math.random() * (100 - 25)) + 25;
+  let r = Math.floor(Math.random() * 3);
+  e_shot.angle = 180 - routers[r].angle;
+  e_shot.power = routers[r].power;
 
   resetBullet();
 }
@@ -245,14 +266,36 @@ function fireBullet(shooter, x, y, dx, dy) {
 }
 
 function generateRouters() {
+  let distance, theta, velocity, power, rx, ry;
 
   for (let i = 0; i < routers.length; i++) {
-    let min = BORDER + routers[i].size + 10;
-    let max = MAP.h - BORDER - routers[i].size - 10;
-    let y = Math.floor(Math.random() * (max - min)) + min;
+    // generate curve angle and calculate power
+    do {
+      distance = enemy.x - player.x;
+      theta = Math.floor(Math.random() * 75);
 
-    routers[i].y = y;
+      velocity = Math.sqrt((distance * GRAVITY) / Math.sin(toRad(2 * theta)));
+      power = velocity / 5;
+    } while (power > 100);
+
+    //rx = Math.floor(Math.random() * 200) + MAP.w / 2;
+    rx = MAP.w / 2;
+    ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * velocity**2 * Math.cos(toRad(theta))**2)) * rx**2 + (MAP.h - player.y);
+
+    routers[i].x = rx;
+    routers[i].y = MAP.h - ry;
+    routers[i].angle = theta;
+    routers[i].power = power;
     routers[i].active = true;
+
+    // for (let i = 0; i < routers.length; i++) {
+    //   let min = BORDER + routers[i].size + 10;
+    //   let max = MAP.h - BORDER - routers[i].size - 10;
+    //   let y = Math.floor(Math.random() * (max - min)) + min;
+
+    //   routers[i].y = y;
+    //   routers[i].active = true;
+    // }
   }
 }
 
@@ -288,7 +331,7 @@ function collisionDetection() {
 
   // detect collision with routers
   for (let i = 0; i < routers.length; i++) {
-    let c1 = bullet.x - Math.max(MAP.w / 2 - routers[i].size / 2, Math.min(bullet.x, MAP.w / 2 + routers[i].size / 2));
+    let c1 = bullet.x - Math.max(routers[i].x - routers[i].size / 2, Math.min(bullet.x, routers[i].x + routers[i].size / 2));
     let c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
     if ((c1 ** 2 + c2 ** 2) < (BSIZE ** 2))
       hitRouter(i);
@@ -321,7 +364,8 @@ function update(dt) {
         player.firing = true;
       } else if (player.fire && player.power < 100) {
         // continue firing
-        player.power += 2;
+        player.power += 0.5;
+        console.log('power = ' + player.power);
       }
       else if (!player.fire && player.firing) {
         // finish firing
@@ -334,13 +378,13 @@ function update(dt) {
       }
     } else {
       // enemy turn
-      if (enemy.angle < e_shot.angle) {
-        enemy.angle += 0.5;
-      } else if (enemy.angle > e_shot.angle) {
-        enemy.angle -= 0.5;
+      if (enemy.angle < e_shot.angle - 0.1) {
+        enemy.angle += 0.1;
+      } else if (enemy.angle > e_shot.angle + 0.1) {
+        enemy.angle -= 0.1;
       } else {
         if (enemy.power < e_shot.power) {
-          enemy.power += 2;
+          enemy.power += 0.5;
         } else {
           let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 5;
           let dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 5;
@@ -353,9 +397,11 @@ function update(dt) {
     // move angle
     if (player.angleUp && player.angle <= 90) {
       player.angle += 0.5;
+      console.log('angle = ' + player.angle);
     }
     else if (player.angleDown && player.angle >= 0) {
       player.angle -= 0.5;
+      console.log('angle = ' + player.angle);
     }
   }
 }
@@ -388,9 +434,9 @@ function spaceStart(ev) {
   if (ev.keyCode == KEY.SPACE) {
     document.removeEventListener('keypress', spaceStart);
     start();
-      // canvas.addEventListener('mousemove', function(evt) {
-      //   getMousePos(canvas, evt);
-      // }, false);
+      canvas.addEventListener('mousemove', function(evt) {
+        getMousePos(canvas, evt);
+      }, false);
   }
 }
 
@@ -398,9 +444,9 @@ document.addEventListener('keypress', spaceStart, false);
 frame(); // start the first frame
 
 
-      // function getMousePos(canvas, evt) {
-      //   var rect = canvas.getBoundingClientRect();
-      //   bullet.x = evt.clientX - rect.left;
-      //   bullet.y = evt.clientY - rect.top;
-      // }
+      function getMousePos(canvas, evt) {
+        var rect = canvas.getBoundingClientRect();
+        console.log(evt.clientX - rect.left);
+        console.log(evt.clientY - rect.top);
+      }
 
