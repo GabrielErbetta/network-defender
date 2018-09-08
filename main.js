@@ -115,7 +115,7 @@ function render(ctx) {
         }
 
         ctx.lineJoin = 'round';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = .5;
         ctx.strokeStyle = routers[i].color;
         ctx.stroke();
       }
@@ -266,24 +266,35 @@ function fireBullet(shooter, x, y, dx, dy) {
 }
 
 function generateRouters() {
-  let distance, theta, velocity, power, rx, ry;
-
+  let distance, theta, velocity, power, rx, ry, maxh, min_diff;
+  let angles = [];
   for (let i = 0; i < routers.length; i++) {
     // generate curve angle and calculate power
     do {
       distance = enemy.x - player.x;
-      theta = Math.floor(Math.random() * 75);
+      do {
+        theta = Math.floor(Math.random() * 75);
+
+        min_diff = 75;
+        for (let j = 0; j < angles.length; j++) {
+          diff = Math.abs(theta - angles[j])
+          min_diff = Math.min(diff, min_diff);
+        }
+      } while (min_diff < 3);
 
       velocity = Math.sqrt((distance * GRAVITY) / Math.sin(toRad(2 * theta)));
       power = velocity / 5;
-    } while (power > 100);
 
-    //rx = Math.floor(Math.random() * 200) + MAP.w / 2;
-    rx = MAP.w / 2;
-    ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * velocity**2 * Math.cos(toRad(theta))**2)) * rx**2 + (MAP.h - player.y);
+      maxh = (velocity**2 * Math.sin(toRad(theta))**2) / (2 * GRAVITY);
+    } while (power > 100 || maxh > MAP.h - 100);
 
-    routers[i].x = rx;
-    routers[i].y = MAP.h - ry;
+    angles.push(theta);
+
+    rx = Math.floor(Math.random() * 600) + (MAP.w / 2 - 300);
+    ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * velocity**2 * Math.cos(toRad(theta))**2)) * rx**2;
+
+    routers[i].x = rx + player.x;
+    routers[i].y = (MAP.h - ry) - (MAP.h - player.y);
     routers[i].angle = theta;
     routers[i].power = power;
     routers[i].active = true;
@@ -434,7 +445,7 @@ function spaceStart(ev) {
   if (ev.keyCode == KEY.SPACE) {
     document.removeEventListener('keypress', spaceStart);
     start();
-      canvas.addEventListener('mousemove', function(evt) {
+      canvas.addEventListener('click', function(evt) {
         getMousePos(canvas, evt);
       }, false);
   }
