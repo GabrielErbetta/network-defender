@@ -240,9 +240,16 @@ function nextRound() {
 
 function enemyTurn() {
   turn = ENEMY;
-  let r = Math.floor(Math.random() * 3);
-  e_shot.angle = 180 - routers[r].angle;
-  e_shot.power = routers[r].power;
+  let r      = Math.floor(Math.random() * 3);
+
+  let a_rand  = Math.floor(Math.random() * 30) / 10;
+      a_rand -= Math.floor(Math.random() * 30) / 10;
+
+  let p_rand  = Math.floor(Math.random() * 50) / 10;
+      p_rand -= Math.floor(Math.random() * 50) / 10;
+
+  e_shot.angle = 180 - routers[r].angle + a_rand;
+  e_shot.power = routers[r].power + p_rand;
 
   resetBullet();
 }
