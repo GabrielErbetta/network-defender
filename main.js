@@ -1,5 +1,5 @@
 var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
-    BORDER  = 20,                // the size of the border
+    BORDER  = 36,                // the size of the border
     GRAVITY = 9.8 * 12,    // very exagerated gravity (6x)
     ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
     PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
@@ -19,11 +19,11 @@ var canvas  = document.getElementById('canvas'),
     player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 },
     enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 },
     e_shot  = { angle: 0, power: 0 }
-    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 1 },
+    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 1 },
     curves  = [],
     routers = [
-      { x: 0, y: 0, angle: 0, power: 0, damage: 10, color: COLOR.GREEN, size: 40, active: false },
-      { x: 0, y: 0, angle: 0, power: 0, damage: 20, color: COLOR.YELLOW, size: 30, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 20, color: COLOR.GREEN, size: 40, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 30, color: COLOR.YELLOW, size: 30, active: false },
       { x: 0, y: 0, angle: 0, power: 0, damage: 40, color: COLOR.RED, size: 20, active: false }
     ];
 
@@ -70,7 +70,7 @@ function render(ctx) {
     ctx.fillRect(0, 0, MAP.w, MAP.h);
 
     ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(20, 20, (MAP.w) - 40, (MAP.h) - 40);
+    ctx.fillRect(BORDER, BORDER, (MAP.w) - BORDER * 2, (MAP.h) - BORDER * 2);
 
     ctx.font = "80px Arial";
     ctx.fillStyle = COLOR.WHITE;
@@ -94,7 +94,7 @@ function render(ctx) {
 
     // render background
     ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(20, 20, (MAP.w) - 40, (MAP.h) - 40);
+    ctx.fillRect(BORDER, BORDER, (MAP.w) - BORDER * 2, (MAP.h) - BORDER * 2);
 
     // render center line
     ctx.beginPath();
@@ -135,10 +135,12 @@ function render(ctx) {
     let px = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
     let py = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
     ctx.beginPath();
-    ctx.strokeStyle = COLOR.WHITE;
-    ctx.moveTo(px, py);
+    ctx.fillStyle = COLOR.RED;
+    ctx.moveTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle -10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle -10)));
     ctx.lineTo(px + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), py + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
-    ctx.stroke();
+    ctx.lineTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle + 10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle + 10)));
+    ctx.closePath();
+    ctx.fill();
     // render hp
     ctx.beginPath();
     ctx.strokeStyle = COLOR.GREEN;
@@ -166,10 +168,12 @@ function render(ctx) {
     let ex = enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle));
     let ey = enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle));
     ctx.beginPath();
-    ctx.strokeStyle = COLOR.WHITE;
-    ctx.moveTo(ex, ey);
+    ctx.fillStyle = COLOR.RED;
+    ctx.moveTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle -10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle -10)));
     ctx.lineTo(ex + (10 + enemy.power / 5) * Math.cos(toRad(360 - enemy.angle)), ey + (10 + enemy.power / 5) * Math.sin(toRad(360 - enemy.angle)));
-    ctx.stroke();
+    ctx.lineTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle + 10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle + 10)));
+    ctx.closePath();
+    ctx.fill();
     // render hp
     ctx.beginPath();
     ctx.strokeStyle = COLOR.GREEN;
@@ -195,8 +199,8 @@ function render(ctx) {
     if (bullet.active || true) {
       ctx.beginPath();
       ctx.fillStyle = bullet.color;
-      ctx.strokeStyle = COLOR.WHITE
-      ctx.lineWidth = 1
+      ctx.strokeStyle = COLOR.WHITE;
+      ctx.lineWidth = 1;
       ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
       ctx.closePath();
       ctx.fill();
@@ -227,7 +231,7 @@ function restart() {
   started = false;
   player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 };
   enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 };
-  bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
+  bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
 }
 
 function nextRound() {
@@ -240,7 +244,7 @@ function nextRound() {
 
 function enemyTurn() {
   turn = ENEMY;
-  let r      = Math.floor(Math.random() * 3);
+  let r = Math.floor(Math.random() * 3);
 
   let a_rand  = Math.floor(Math.random() * 30) / 10;
       a_rand -= Math.floor(Math.random() * 30) / 10;
@@ -264,12 +268,12 @@ function onkey(ev, key, down) {
 }
 
 function resetBullet() {
-  //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false };
-  bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 0, active: false, shooter: 0 };
+  //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false };
+  bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
 }
 
 function fireBullet(shooter, x, y, dx, dy) {
-  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 0, active: true, shooter: shooter };
+  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 10, active: true, shooter: shooter };
 }
 
 function generateRouters() {
@@ -284,7 +288,7 @@ function generateRouters() {
 
         min_diff = 75;
         for (let j = 0; j < angles.length; j++) {
-          diff = Math.abs(theta - angles[j])
+          diff = Math.abs(theta - angles[j]);
           min_diff = Math.min(diff, min_diff);
         }
       } while (min_diff < 3);
@@ -413,11 +417,11 @@ function update(dt) {
       }
     }
     // move angle
-    if (player.angleUp && player.angle <= 90) {
+    if (player.angleUp && player.angle < 90) {
       player.angle += 0.5;
       console.log('angle = ' + player.angle);
     }
-    else if (player.angleDown && player.angle >= 0) {
+    else if (player.angleDown && player.angle > 0) {
       player.angle -= 0.5;
       console.log('angle = ' + player.angle);
     }
