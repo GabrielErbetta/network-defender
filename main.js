@@ -16,8 +16,8 @@ var canvas  = document.getElementById('canvas'),
     started = false,
     round   = 0,
     turn    = null,
-    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0 },
-    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0 },
+    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0 },
+    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0 },
     e_shot  = { angle: 0, power: 0 }
     bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 1 },
     curves  = [],
@@ -137,7 +137,7 @@ function render(ctx) {
     ctx.beginPath();
     ctx.fillStyle = COLOR.RED;
     ctx.moveTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle -10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle - 10)));
-    ctx.lineTo(px + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), py + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
+    ctx.lineTo(px + 10 * Math.cos(toRad(360 - player.angle)), py + 10 * Math.sin(toRad(360 - player.angle)));
     ctx.lineTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle + 10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle + 10)));
     ctx.closePath();
     ctx.fill();
@@ -158,6 +158,18 @@ function render(ctx) {
       ctx.fillRect(12, MAP.h - 8 - 4 - (i * 8), 12, -6);
     }
     draw("hp", 2, 11, MAP.h - 8 - 86 - 4 - 14);
+    // render power bar
+    ctx.fillStyle = COLOR.BLACK;
+    ctx.fillRect(BORDER, MAP.h - 8, 255, -10);
+    ctx.fillStyle = COLOR.WHITE;
+    ctx.fillRect(BORDER, MAP.h - 8, player.power, -10);
+    if (player.last_power) {
+      ctx.fillStyle = COLOR.RED;
+      ctx.fillRect(BORDER + player.last_power, MAP.h - 8, 1, -10);
+    }
+    draw("power", 2, BORDER, MAP.h - 8 - 10 - 4 - 10);
+    let p_pow = "192.168.1." + player.power;
+    draw(p_pow, 2, BORDER + 255 - (7*p_pow.length), MAP.h - 8 - 10 - 4 - 10);
 
     // render enemy
     ctx.fillStyle = COLOR.GREEN;
@@ -175,7 +187,7 @@ function render(ctx) {
     ctx.beginPath();
     ctx.fillStyle = COLOR.RED;
     ctx.moveTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle -10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle -10)));
-    ctx.lineTo(ex + (10 + enemy.power / 5) * Math.cos(toRad(360 - enemy.angle)), ey + (10 + enemy.power / 5) * Math.sin(toRad(360 - enemy.angle)));
+    ctx.lineTo(ex + 10 * Math.cos(toRad(360 - enemy.angle)), ey + 10 * Math.sin(toRad(360 - enemy.angle)));
     ctx.lineTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle + 10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle + 10)));
     ctx.closePath();
     ctx.fill();
@@ -195,12 +207,25 @@ function render(ctx) {
       ctx.fillRect(MAP.w - 36 + 12, MAP.h - 8 - 4 - (i * 8), 12, -6);
     }
     draw("hp", 2, MAP.w - 36 + 11, MAP.h - 8 - 86 - 4 - 14);
+    // render power bar
+    ctx.fillStyle = COLOR.BLACK;
+    ctx.fillRect(MAP.w - BORDER, MAP.h - 8, -255, -10);
+    ctx.fillStyle = COLOR.WHITE;
+    ctx.fillRect(MAP.w - BORDER, MAP.h - 8, -enemy.power, -10);
+    if (enemy.last_power) {
+      ctx.fillStyle = COLOR.RED;
+      ctx.fillRect(MAP.w - (BORDER + enemy.last_power), MAP.h - 8, 1, -10);
+    }
+    draw("power", 2, MAP.w - BORDER - (7*6), MAP.h - 8 - 10 - 4 - 10);
+    let e_pow = "192.168.1." + enemy.power;
+    draw(e_pow, 2, MAP.w - BORDER - 255, MAP.h - 8 - 10 - 4 - 10);
 
     // render routers
     for (let i = 0; i < routers.length; i++) {
       if (routers[i].active) {
         ctx.fillStyle = routers[i].color;
-        ctx.fillRect(routers[i].x - (routers[i].size / 2), routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
+        // ctx.fillRect(routers[i].x - (routers[i].size / 2), routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
+        ctx.drawImage(IMAGES.south,routers[i].x - (routers[i].size / 2), routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
       };
     }
 
@@ -393,18 +418,18 @@ function update(dt) {
         // start firing
         player.power = 0;
         player.firing = true;
-      } else if (player.fire && player.power < 100) {
+      } else if (player.fire && player.power < 255) {
         // continue firing
-        player.power += 0.5;
+        player.power += 1;
         console.log('power = ' + player.power);
       }
       else if (!player.fire && player.firing) {
         // finish firing
-        let dx = (Math.cos(toRad(player.angle)) * player.power) * 5;
-        let dy = - (Math.sin(toRad(player.angle)) * player.power) * 5;
+        let dx = (Math.cos(toRad(player.angle)) * player.power) * 2;
+        let dy = - (Math.sin(toRad(player.angle)) * player.power) * 2;
         fireBullet(PLAYER, player.x, player.y, dx, dy);
 
-        player.power = 0;
+        player.last_power = player.power;
         player.firing = false;
       }
     } else {
@@ -414,14 +439,18 @@ function update(dt) {
       } else if (enemy.angle > e_shot.angle + 0.1) {
         enemy.angle -= 0.1;
       } else {
-        if (enemy.power < e_shot.power) {
-          enemy.power += 0.5;
+        if (!enemy.firing) {
+          enemy.power = 0;
+          enemy.firing = true;
+        } else if (enemy.power < e_shot.power) {
+          enemy.power += 1;
         } else {
           let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 5;
           let dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 5;
           fireBullet(ENEMY, enemy.x, enemy.y, dx, dy);
 
-          enemy.power = 0;
+          enemy.last_power = enemy.power;
+          enemy.firing = false;
         }
       }
     }
@@ -471,8 +500,11 @@ function spaceStart(ev) {
   }
 }
 
-document.addEventListener('keypress', spaceStart, false);
-frame(); // start the first frame
+function load(images) {
+  IMAGES = images;
+  document.addEventListener('keypress', spaceStart, false);
+  frame(); // start the first frame
+}
 
 
       function getMousePos(canvas, evt) {
@@ -481,3 +513,20 @@ frame(); // start the first frame
         console.log(evt.clientY - rect.top);
       }
 
+
+var image_names = ['south', 'east', 'west'];
+function loadImages(names, callback) {
+  var n,name,
+      result = {},
+      count  = names.length,
+      onload = function() { if (--count == 0) callback(result); };
+
+  for(n = 0 ; n < names.length ; n++) {
+    name = names[n];
+    result[name] = document.createElement('img');
+    result[name].addEventListener('load', onload);
+    result[name].src = name + ".png";
+  }
+}
+
+loadImages(image_names, load);
