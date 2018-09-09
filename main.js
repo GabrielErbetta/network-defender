@@ -16,20 +16,20 @@ var canvas  = document.getElementById('canvas'),
     started = false,
     round   = 0,
     turn    = null,
-    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 },
-    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 },
+    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0 },
+    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0 },
     e_shot  = { angle: 0, power: 0 }
-    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 1 },
+    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 1 },
     curves  = [],
     routers = [
-      { x: 0, y: 0, angle: 0, power: 0, damage: 20, color: COLOR.GREEN, size: 40, active: false },
-      { x: 0, y: 0, angle: 0, power: 0, damage: 30, color: COLOR.YELLOW, size: 30, active: false },
-      { x: 0, y: 0, angle: 0, power: 0, damage: 40, color: COLOR.RED, size: 20, active: false }
+      { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 40, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.YELLOW, size: 30, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 4, color: COLOR.RED, size: 20, active: false }
     ];
 
 var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
     gradient.addColorStop(0, '#000');
-    gradient.addColorStop(1, '#0f9b0f');
+    gradient.addColorStop(1, '#434343');
 
 
 function timestamp() {
@@ -136,23 +136,28 @@ function render(ctx) {
     let py = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
     ctx.beginPath();
     ctx.fillStyle = COLOR.RED;
-    ctx.moveTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle -10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle -10)));
+    ctx.moveTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle -10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle - 10)));
     ctx.lineTo(px + (10 + player.power / 5) * Math.cos(toRad(360 - player.angle)), py + (10 + player.power / 5) * Math.sin(toRad(360 - player.angle)));
     ctx.lineTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle + 10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle + 10)));
     ctx.closePath();
     ctx.fill();
-    // render hp
-    ctx.beginPath();
-    ctx.strokeStyle = COLOR.GREEN;
-    ctx.lineWidth = 3;
-    ctx.moveTo(player.x - PSIZE, player.y + PSIZE + 10);
-    ctx.lineTo(player.x - PSIZE + (PSIZE * 2 * player.hp / 100), player.y + PSIZE + 10);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.strokeStyle = COLOR.RED;
-    ctx.moveTo(player.x - PSIZE + (PSIZE * 2 * player.hp / 100), player.y + PSIZE + 10);
-    ctx.lineTo(player.x - PSIZE + (PSIZE * 2 * player.hp / 100) + (PSIZE * 2 * (100 - player.hp) / 100), player.y + PSIZE + 10);
-    ctx.stroke();
+    // render lifebar
+    ctx.fillStyle = COLOR.BLACK;
+    ctx.fillRect(8, MAP.h - 8, BORDER - 16, -86);
+    ctx.fillRect(14, MAP.h - 8 - 86, 8, -4);
+    let color;
+    if (player.hp >= 8)
+      color = COLOR.GREEN;
+    else if (player.hp >= 4)
+      color = COLOR.YELLOW;
+    else
+      color = COLOR.RED;
+
+    ctx.fillStyle = color;
+    for (let i = 0; i < player.hp; i++) {
+      ctx.fillRect(12, MAP.h - 8 - 4 - (i * 8), 12, -6);
+    }
+    draw("hp", 2, 11, MAP.h - 8 - 86 - 4 - 14);
 
     // render enemy
     ctx.fillStyle = COLOR.GREEN;
@@ -174,18 +179,22 @@ function render(ctx) {
     ctx.lineTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle + 10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle + 10)));
     ctx.closePath();
     ctx.fill();
-    // render hp
-    ctx.beginPath();
-    ctx.strokeStyle = COLOR.GREEN;
-    ctx.lineWidth = 3;
-    ctx.moveTo(enemy.x - PSIZE, enemy.y + PSIZE + 10);
-    ctx.lineTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100), enemy.y + PSIZE + 10);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.strokeStyle = COLOR.RED;
-    ctx.moveTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100), enemy.y + PSIZE + 10);
-    ctx.lineTo(enemy.x - PSIZE + (PSIZE * 2 * enemy.hp / 100) + (PSIZE * 2 * (100 - enemy.hp) / 100), enemy.y + PSIZE + 10);
-    ctx.stroke();
+    // render lifebar
+    ctx.fillStyle = COLOR.BLACK;
+    ctx.fillRect(MAP.w - 36 + 8, MAP.h - 8, BORDER - 16, -86);
+    ctx.fillRect(MAP.w - 36 + 14, MAP.h - 8 - 86, 8, -4);
+    if (enemy.hp >= 8)
+      color = COLOR.GREEN;
+    else if (enemy.hp >= 4)
+      color = COLOR.YELLOW;
+    else
+      color = COLOR.RED;
+
+    ctx.fillStyle = color;
+    for (let i = 0; i < enemy.hp; i++) {
+      ctx.fillRect(MAP.w - 36 + 12, MAP.h - 8 - 4 - (i * 8), 12, -6);
+    }
+    draw("hp", 2, MAP.w - 36 + 11, MAP.h - 8 - 86 - 4 - 14);
 
     // render routers
     for (let i = 0; i < routers.length; i++) {
@@ -269,11 +278,11 @@ function onkey(ev, key, down) {
 
 function resetBullet() {
   //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false };
-  bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
+  bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 };
 }
 
 function fireBullet(shooter, x, y, dx, dy) {
-  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 10, active: true, shooter: shooter };
+  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 1, active: true, shooter: shooter };
 }
 
 function generateRouters() {
