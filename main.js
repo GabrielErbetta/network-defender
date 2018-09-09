@@ -20,13 +20,11 @@ var canvas  = document.getElementById('canvas'),
     width   = canvas.width = MAP.w,
     height  = canvas.height = MAP.h,
     started = false,
-    round   = 0,
     turn    = null,
-    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0 },
-    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0 },
+    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
+    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
     e_shot  = { angle: 0, power: 0 }
     bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 1 },
-    curves  = [],
     routers = [
       { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 40, active: false },
       { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.YELLOW, size: 30, active: false },
@@ -37,6 +35,13 @@ var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.
     gradient.addColorStop(0, '#000');
     gradient.addColorStop(1, '#434343');
 
+var fps  = 60,
+    step = 1/fps,
+    dt   = 0,
+    now, last = timestamp();
+
+
+
 
 function timestamp() {
   if (window.performance && window.performance.now)
@@ -44,15 +49,6 @@ function timestamp() {
   else
     return new Date().getTime();
 }
-
-function bound(num, min, max) {
-  return Math.min(Math.max(num, min), max);
-}
-
-var fps  = 60,
-    step = 1/fps,
-    dt   = 0,
-    now, last = timestamp();
 
 function frame() {
   if (started) {
@@ -64,187 +60,153 @@ function frame() {
     }
     last = now;
   }
-  render(ctx, dt);
+  render();
   requestAnimationFrame(frame, canvas);
 }
 
-function render(ctx) {
-  ctx.clearRect(0,0,MAP.w,MAP.h); // clear canvas
+function renderBackground() {
+  // clear canvas
+  ctx.clearRect(0,0,MAP.w,MAP.h);
+
+  // render border
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, MAP.w, MAP.h);
+
+  // render background
+  ctx.fillStyle = COLOR.BLACK;
+  ctx.fillRect(BORDER, BORDER, (MAP.w) - BORDER * 2, (MAP.h) - BORDER * 2);
+}
+
+function renderCannon(cannon) {
+  // render cannon
+  ctx.fillStyle = COLOR.GREEN;
+  ctx.fillRect(cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
+
+  // render firewall
+  ctx.strokeStyle = COLOR.RED;
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  ctx.arc(cannon.x, cannon.y, PSIZE, 0, 2*Math.PI);
+  ctx.closePath();
+  ctx.stroke();
+
+  //render aim
+  let aim_x = cannon.x + PSIZE * Math.cos(toRad(360 - cannon.angle));
+  let aim_y = cannon.y + PSIZE * Math.sin(toRad(360 - cannon.angle));
+  ctx.fillStyle = COLOR.RED;
+
+  ctx.beginPath();
+  ctx.moveTo(cannon.x + PSIZE * Math.cos(toRad(350 - cannon.angle)), cannon.y + PSIZE * Math.sin(toRad(350 - cannon.angle)));
+  ctx.lineTo(aim_x + 10 * Math.cos(toRad(360 - cannon.angle)), aim_y + 10 * Math.sin(toRad(360 - cannon.angle)));
+  ctx.lineTo(cannon.x + PSIZE * Math.cos(toRad(370 - cannon.angle)), cannon.y + PSIZE * Math.sin(toRad(360 - cannon.angle + 10)));
+  ctx.closePath();
+  ctx.fill();
+
+  // render lifebar
+  let hp_x = (MAP.w - BORDER) * cannon.cannon_multiplier;
+  ctx.fillStyle = COLOR.BLACK;
+  ctx.fillRect(hp_x + 8, MAP.h - 8, BORDER - 16, -86);
+  ctx.fillRect(hp_x + 14, MAP.h - 94, 8, -4);
+
+  // render hp
+  let hp_color;
+  if (cannon.hp >= 8) hp_color = COLOR.GREEN;
+  else if (cannon.hp >= 4) hp_color = COLOR.YELLOW;
+  else hp_color = COLOR.RED;
+  ctx.fillStyle = hp_color;
+
+  for (let i = 0; i < cannon.hp; i++) {
+    ctx.fillRect(hp_x + 12, MAP.h - 12 - (i * 8), 12, -6);
+  }
+  draw("HP", 2, hp_x + 11, MAP.h - 112);
+
+  // render power bar
+  let power_x = (MAP.w - BORDER * 2) * cannon.cannon_multiplier + BORDER;
+  ctx.fillStyle = COLOR.BLACK;
+  ctx.fillRect(power_x, MAP.h - 8, 255 - (cannon.cannon_multiplier * 510), -10);
+
+  // render power
+  ctx.fillStyle = COLOR.WHITE;
+  ctx.fillRect(power_x, MAP.h - 8, cannon.power - (cannon.cannon_multiplier * (cannon.power * 2)), -10);
+
+  // render last power
+  if (cannon.last_power) {
+    let last_power_x = BORDER + cannon.last_power;
+    if (cannon == enemy) last_power_x = MAP.w - last_power_x;
+
+    ctx.fillStyle = COLOR.RED;
+    ctx.fillRect(last_power_x, MAP.h - 8, 1, -10);
+  }
+
+  // render 'POWER'
+  let power_text_x = (cannon == player) ? BORDER : MAP.w - BORDER - 42;
+  draw("Power", 2, power_text_x, MAP.h - 32);
+
+  // render IP
+  let p_pow = "192.168.1." + cannon.power;
+  let ip_text_x = (cannon == player) ? BORDER + 255 - (7 * p_pow.length) : MAP.w - BORDER - 255;
+  draw(p_pow, 2, ip_text_x, MAP.h - 32);
+}
+
+function renderRouter(router) {
+  ctx.fillStyle = router.color;
+  ctx.fillRect(router.x - (router.size / 2), router.y - (router.size / 2), router.size, router.size);
+}
+
+function renderBullet() {
+  ctx.beginPath();
+  ctx.fillStyle = bullet.color;
+  ctx.strokeStyle = COLOR.WHITE;
+  ctx.lineWidth = 1;
+  ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+function render() {
+  renderBackground();
 
   if (!started) {
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, MAP.w, MAP.h);
+    // render title
+    let title = "Game Title";
+    draw(title, 10, MAP.w / 2 - (title.length * 20), MAP.h / 2 - 130);
 
-    ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(BORDER, BORDER, (MAP.w) - BORDER * 2, (MAP.h) - BORDER * 2);
+    // render subtitle
+    let subtitle = "Space to start";
+    draw(subtitle, 4, MAP.w / 2 - (subtitle.length * 8) + 5, MAP.h / 2);
 
-    ctx.font = "80px Arial";
-    ctx.fillStyle = COLOR.WHITE;
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = COLOR.GREEN;
-    ctx.textAlign = "center";
-    ctx.fillText("Router Shootout", MAP.w / 2, MAP.h / 2);
-    ctx.strokeText("Router Shootout", MAP.w / 2, MAP.h / 2);
+    // render instructions
+    let instruction = "Up and down to change angle";
+    draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 100);
+    instruction = "Hold space to shoot";
+    draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 130);
+    instruction = "Hit powerups for damage boost";
+    draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 160);
 
-    ctx.font = "40px Arial";
-    ctx.fillStyle = COLOR.WHITE;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = COLOR.GREEN;
-    ctx.textAlign = "center";
-    ctx.fillText("Space to Start", MAP.w / 2, MAP.h / 2 + 120);
-    ctx.strokeText("Space to Start", MAP.w / 2, MAP.h / 2 + 120);
+    //render powerups
+    let powerup = "Green: 2x damage";
+    draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 100, COLOR.GREEN);
+    powerup = "Yellow: 3x damage";
+    draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.YELLOW);
+    powerup = "Red: 4x damage";
+    draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 160, COLOR.RED);
   } else {
-    // render border
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, MAP.w, MAP.h);
-
-    // render background
-    ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(BORDER, BORDER, (MAP.w) - BORDER * 2, (MAP.h) - BORDER * 2);
-
-    // render center line
-    ctx.beginPath();
-    ctx.strokeStyle = COLOR.WHITE;
-    ctx.moveTo(MAP.w / 2, 0);
-    ctx.lineTo(MAP.w / 2, MAP.h);
-    ctx.stroke();
-
-    //render shooting lines
-    for (let i = 0; i < routers.length; i++) {
-      if (routers[i].active) {
-        ctx.beginPath();
-        ctx.moveTo(player.x, player.y);
-
-        for(var x = 0 + 1; x <= enemy.x - player.x; x += 1) {
-          hy = Math.tan(toRad(routers[i].angle)) * x - (GRAVITY / (2 * (routers[i].power * 2)**2 * Math.cos(toRad(routers[i].angle))**2)) * x**2;
-          ctx.lineTo(x + player.x, (MAP.h - hy) - (MAP.h - player.y));
-        }
-
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = .5;
-        ctx.strokeStyle = routers[i].color;
-        ctx.stroke();
-      }
-    }
-
-    // render player
-    ctx.fillStyle = COLOR.GREEN;
-    ctx.fillRect(player.x - PSIZE / 2, player.y - (PSIZE / 2), PSIZE, PSIZE);
-    // render firewall
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, PSIZE, 0, 2*Math.PI);
-    ctx.strokeStyle = COLOR.RED;
-    ctx.lineWidth = 3;
-    ctx.closePath();
-    ctx.stroke();
-    //render shooting angle
-    let px = player.x + PSIZE * Math.cos(toRad(360 - player.angle));
-    let py = player.y + PSIZE * Math.sin(toRad(360 - player.angle));
-    ctx.beginPath();
-    ctx.fillStyle = COLOR.RED;
-    ctx.moveTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle -10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle - 10)));
-    ctx.lineTo(px + 10 * Math.cos(toRad(360 - player.angle)), py + 10 * Math.sin(toRad(360 - player.angle)));
-    ctx.lineTo(player.x + PSIZE * Math.cos(toRad(360 - player.angle + 10)), player.y + PSIZE * Math.sin(toRad(360 - player.angle + 10)));
-    ctx.closePath();
-    ctx.fill();
-    // render lifebar
-    ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(8, MAP.h - 8, BORDER - 16, -86);
-    ctx.fillRect(14, MAP.h - 8 - 86, 8, -4);
-    let color;
-    if (player.hp >= 8)
-      color = COLOR.GREEN;
-    else if (player.hp >= 4)
-      color = COLOR.YELLOW;
-    else
-      color = COLOR.RED;
-
-    ctx.fillStyle = color;
-    for (let i = 0; i < player.hp; i++) {
-      ctx.fillRect(12, MAP.h - 8 - 4 - (i * 8), 12, -6);
-    }
-    draw("hp", 2, 11, MAP.h - 8 - 86 - 4 - 14);
-    // render power bar
-    ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(BORDER, MAP.h - 8, 255, -10);
-    ctx.fillStyle = COLOR.WHITE;
-    ctx.fillRect(BORDER, MAP.h - 8, player.power, -10);
-    if (player.last_power) {
-      ctx.fillStyle = COLOR.RED;
-      ctx.fillRect(BORDER + player.last_power, MAP.h - 8, 1, -10);
-    }
-    draw("power", 2, BORDER, MAP.h - 8 - 10 - 4 - 10);
-    let p_pow = "192.168.1." + player.power;
-    draw(p_pow, 2, BORDER + 255 - (7*p_pow.length), MAP.h - 8 - 10 - 4 - 10);
-
-    // render enemy
-    ctx.fillStyle = COLOR.GREEN;
-    ctx.fillRect(enemy.x - PSIZE / 2, enemy.y - (PSIZE / 2), PSIZE, PSIZE);
-    // render firewall
-    ctx.beginPath();
-    ctx.arc(enemy.x, enemy.y, PSIZE, 0, 2*Math.PI);
-    ctx.strokeStyle = COLOR.RED;
-    ctx.lineWidth = 3;
-    ctx.closePath();
-    ctx.stroke();
-    //render shooting angle
-    let ex = enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle));
-    let ey = enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle));
-    ctx.beginPath();
-    ctx.fillStyle = COLOR.RED;
-    ctx.moveTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle -10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle -10)));
-    ctx.lineTo(ex + 10 * Math.cos(toRad(360 - enemy.angle)), ey + 10 * Math.sin(toRad(360 - enemy.angle)));
-    ctx.lineTo(enemy.x + PSIZE * Math.cos(toRad(360 - enemy.angle + 10)), enemy.y + PSIZE * Math.sin(toRad(360 - enemy.angle + 10)));
-    ctx.closePath();
-    ctx.fill();
-    // render lifebar
-    ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(MAP.w - 36 + 8, MAP.h - 8, BORDER - 16, -86);
-    ctx.fillRect(MAP.w - 36 + 14, MAP.h - 8 - 86, 8, -4);
-    if (enemy.hp >= 8)
-      color = COLOR.GREEN;
-    else if (enemy.hp >= 4)
-      color = COLOR.YELLOW;
-    else
-      color = COLOR.RED;
-
-    ctx.fillStyle = color;
-    for (let i = 0; i < enemy.hp; i++) {
-      ctx.fillRect(MAP.w - 36 + 12, MAP.h - 8 - 4 - (i * 8), 12, -6);
-    }
-    draw("hp", 2, MAP.w - 36 + 11, MAP.h - 8 - 86 - 4 - 14);
-    // render power bar
-    ctx.fillStyle = COLOR.BLACK;
-    ctx.fillRect(MAP.w - BORDER, MAP.h - 8, -255, -10);
-    ctx.fillStyle = COLOR.WHITE;
-    ctx.fillRect(MAP.w - BORDER, MAP.h - 8, -enemy.power, -10);
-    if (enemy.last_power) {
-      ctx.fillStyle = COLOR.RED;
-      ctx.fillRect(MAP.w - (BORDER + enemy.last_power), MAP.h - 8, 1, -10);
-    }
-    draw("power", 2, MAP.w - BORDER - (7*6), MAP.h - 8 - 10 - 4 - 10);
-    let e_pow = "192.168.1." + enemy.power;
-    draw(e_pow, 2, MAP.w - BORDER - 255, MAP.h - 8 - 10 - 4 - 10);
+    renderBackground();
+    renderCannon(player);
+    renderCannon(enemy);
 
     // render routers
     for (let i = 0; i < routers.length; i++) {
       if (routers[i].active) {
-        ctx.fillStyle = routers[i].color;
-        // ctx.fillRect(routers[i].x - (routers[i].size / 2), routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
-        ctx.drawImage(IMAGES.south,routers[i].x - (routers[i].size / 2), routers[i].y - (routers[i].size / 2), routers[i].size, routers[i].size);
-      };
+        renderRouter(routers[i]);
+      }
     }
 
     // render bullet
-    if (bullet.active || true) {
-      ctx.beginPath();
-      ctx.fillStyle = bullet.color;
-      ctx.strokeStyle = COLOR.WHITE;
-      ctx.lineWidth = 1;
-      ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+    if (bullet.active) {
+      renderBullet();
     }
   }
 }
@@ -275,11 +237,10 @@ function restart() {
 }
 
 function nextRound() {
-  round++;
   turn = PLAYER;
 
   resetBullet();
-  //generateRouters();
+  generateRouters();
 }
 
 function enemyTurn() {
@@ -342,7 +303,7 @@ function generateRouters() {
 
     angles.push(theta);
 
-    rx = Math.floor(Math.random() * 600) + (MAP.w / 2 - 300);
+    rx = Math.floor(Math.random() * 200) + (MAP.w / 2 - 100);
     ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * velocity**2 * Math.cos(toRad(theta))**2)) * rx**2;
 
     routers[i].x = rx + player.x;
@@ -350,19 +311,25 @@ function generateRouters() {
     routers[i].angle = theta;
     routers[i].power = power;
     routers[i].active = true;
-
-    // for (let i = 0; i < routers.length; i++) {
-    //   let min = BORDER + routers[i].size + 10;
-    //   let max = MAP.h - BORDER - routers[i].size - 10;
-    //   let y = Math.floor(Math.random() * (max - min)) + min;
-
-    //   routers[i].y = y;
-    //   routers[i].active = true;
-    // }
   }
 }
 
 function collisionDetection() {
+  // detect collision with borders
+  if ((bullet.x < (BORDER + BSIZE)) || (bullet.x > (MAP.w - BORDER - BSIZE)) ||
+      (bullet.y < (BORDER + BSIZE)) || (bullet.y > (MAP.h - BORDER - BSIZE))) {
+    miss();
+    return;
+  }
+
+  // detect collision with routers
+  for (let i = 0; i < routers.length; i++) {
+    let c1 = bullet.x - Math.max(routers[i].x - routers[i].size / 2, Math.min(bullet.x, routers[i].x + routers[i].size / 2));
+    let c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
+    if ((c1 ** 2 + c2 ** 2) < (BSIZE ** 2))
+      hitRouter(i);
+  }
+
   // detect collision with enemy
   if (bullet.shooter == PLAYER) {
     let c1 = bullet.x - enemy.x;
@@ -383,21 +350,6 @@ function collisionDetection() {
       hitPlayer();
       return;
     }
-  }
-
-  // detect collision with borders
-  if ((bullet.x < (BORDER + BSIZE)) || (bullet.x > (MAP.w - BORDER - BSIZE)) ||
-      (bullet.y < (BORDER + BSIZE)) || (bullet.y > (MAP.h - BORDER - BSIZE))) {
-    miss();
-    return;
-  }
-
-  // detect collision with routers
-  for (let i = 0; i < routers.length; i++) {
-    let c1 = bullet.x - Math.max(routers[i].x - routers[i].size / 2, Math.min(bullet.x, routers[i].x + routers[i].size / 2));
-    let c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
-    if ((c1 ** 2 + c2 ** 2) < (BSIZE ** 2))
-      hitRouter(i);
   }
 }
 
@@ -461,15 +413,15 @@ function update(dt) {
         }
       }
     }
-    // move angle
-    if (player.angleUp && player.angle < 90) {
-      player.angle += 0.5;
-      console.log('angle = ' + player.angle);
-    }
-    else if (player.angleDown && player.angle > 0) {
-      player.angle -= 0.5;
-      console.log('angle = ' + player.angle);
-    }
+  }
+
+  // move angle
+  if (player.angleUp && player.angle < 90) {
+    player.angle += 0.5;
+    console.log('angle = ' + player.angle);
+  } else if (player.angleDown && player.angle > 0) {
+    player.angle -= 0.5;
+    console.log('angle = ' + player.angle);
   }
 }
 
@@ -505,39 +457,9 @@ function spaceStart(ev) {
   if (ev.keyCode == KEY.SPACE) {
     document.removeEventListener('keypress', spaceStart);
     start();
-      canvas.addEventListener('click', function(evt) {
-        getMousePos(canvas, evt);
-      }, false);
   }
 }
 
-function load(images) {
-  IMAGES = images;
-  document.addEventListener('keypress', spaceStart, false);
-  frame(); // start the first frame
-}
 
-
-      function getMousePos(canvas, evt) {
-        var rect = canvas.getBoundingClientRect();
-        console.log(evt.clientX - rect.left);
-        console.log(evt.clientY - rect.top);
-      }
-
-
-var image_names = ['south', 'east', 'west'];
-function loadImages(names, callback) {
-  var n,name,
-      result = {},
-      count  = names.length,
-      onload = function() { if (--count == 0) callback(result); };
-
-  for(n = 0 ; n < names.length ; n++) {
-    name = names[n];
-    result[name] = document.createElement('img');
-    result[name].addEventListener('load', onload);
-    result[name].src = name + ".png";
-  }
-}
-
-loadImages(image_names, load);
+document.addEventListener('keypress', spaceStart, false);
+frame(); // start the first frame

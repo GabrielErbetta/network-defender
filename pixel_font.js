@@ -264,13 +264,20 @@ var letters = letters = {
       [, ,],
       [, ,],
       [,1,]
+  ],
+  ':': [
+      [, ,],
+      [,1,],
+      [, ,],
+      [, ,],
+      [,1,]
   ]
 };
 
 var canvas = document.getElementById('canvas');
 var context = canvas.getContext('2d');
 
-function draw(string, size, pos_x, pos_y) {
+function draw(string, size, pos_x, pos_y, color = 'white') {
   var needed = [];
   string = string.toUpperCase(); // because I only did uppercase letters
   for (var i = 0; i < string.length; i++) {
@@ -280,7 +287,7 @@ function draw(string, size, pos_x, pos_y) {
       }
   }
 
-  context.fillStyle = 'white';
+  context.fillStyle = color;
   var currX = pos_x;
   for (i = 0; i < needed.length; i++) {
       letter = needed[i];
