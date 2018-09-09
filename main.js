@@ -7,7 +7,13 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     PLAYER  = 1,
     ENEMY   = 2,
     COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00', YELLOW: '#FF0' },
-    KEY     = { UP: 38, DOWN: 40, SPACE: 32 };
+    KEY     = { UP: 38, DOWN: 40, SPACE: 32 },
+    SOUNDS  = {
+      SHOOT:   new Audio('sounds/shoot_22.wav'),
+      HIT:     new Audio('sounds/hit_22.wav'),
+      MISS:    new Audio('sounds/miss_22.wav'),
+      POWERUP: new Audio('sounds/powerup_22.wav')
+    };
 
 var canvas  = document.getElementById('canvas'),
     ctx     = canvas.getContext('2d'),
@@ -110,7 +116,7 @@ function render(ctx) {
         ctx.moveTo(player.x, player.y);
 
         for(var x = 0 + 1; x <= enemy.x - player.x; x += 1) {
-          hy = Math.tan(toRad(routers[i].angle)) * x - (GRAVITY / (2 * (routers[i].power * 5)**2 * Math.cos(toRad(routers[i].angle))**2)) * x**2;
+          hy = Math.tan(toRad(routers[i].angle)) * x - (GRAVITY / (2 * (routers[i].power * 2)**2 * Math.cos(toRad(routers[i].angle))**2)) * x**2;
           ctx.lineTo(x + player.x, (MAP.h - hy) - (MAP.h - player.y));
         }
 
@@ -263,8 +269,8 @@ function restart() {
   document.addEventListener('keypress', spaceStart, false);
 
   started = false;
-  player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 45, power: 0 };
-  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 32 - (PSIZE / 2), hp: 100, angle: 135, power: 0 };
+  player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0 },
+  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0 },
   bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
 }
 
@@ -308,6 +314,7 @@ function resetBullet() {
 
 function fireBullet(shooter, x, y, dx, dy) {
   bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 1, active: true, shooter: shooter };
+  SOUNDS.SHOOT.play();
 }
 
 function generateRouters() {
@@ -328,10 +335,10 @@ function generateRouters() {
       } while (min_diff < 3);
 
       velocity = Math.sqrt((distance * GRAVITY) / Math.sin(toRad(2 * theta)));
-      power = velocity / 5;
+      power = velocity / 2;
 
       maxh = (velocity**2 * Math.sin(toRad(theta))**2) / (2 * GRAVITY);
-    } while (power > 100 || maxh > MAP.h - 100);
+    } while (power > 255 || maxh > MAP.h - 100);
 
     angles.push(theta);
 
@@ -445,8 +452,8 @@ function update(dt) {
         } else if (enemy.power < e_shot.power) {
           enemy.power += 1;
         } else {
-          let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 5;
-          let dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 5;
+          let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 2;
+          let dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 2;
           fireBullet(ENEMY, enemy.x, enemy.y, dx, dy);
 
           enemy.last_power = enemy.power;
@@ -467,16 +474,19 @@ function update(dt) {
 }
 
 function miss() {
+  SOUNDS.MISS.play();
   bullet.shooter == PLAYER ? enemyTurn() : nextRound();
 }
 
 function hitEnemy() {
   enemy.hp = Math.max(enemy.hp - bullet.damage, 0);
+  SOUNDS.HIT.play();
   enemyTurn();
 }
 
 function hitPlayer() {
   player.hp = Math.max(player.hp - bullet.damage, 0);
+  SOUNDS.HIT.play();
   nextRound();
 }
 
@@ -484,6 +494,7 @@ function hitRouter(i) {
   if (routers[i].damage > bullet.damage) {
     bullet.damage = routers[i].damage;
     bullet.color = routers[i].color;
+    SOUNDS.POWERUP.play();
   }
 }
 
