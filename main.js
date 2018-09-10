@@ -200,8 +200,8 @@ function render() {
 
   if (!started) {
     // render title
-    let title = "Game Title";
-    draw(title, 10, MAP.w / 2 - (title.length * 20), MAP.h / 2 - 130);
+    let title = "Network Defender";
+    draw(title, 10, MAP.w / 2 - (title.length * 21), MAP.h / 2 - 130);
 
     // render subtitle
     let subtitle = "Space to start";
