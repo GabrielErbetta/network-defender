@@ -21,10 +21,11 @@ var canvas    = document.getElementById('canvas'),
     height    = canvas.height = MAP.h,
     started   = false,
     turn      = null,
+    icon      = null,
     player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
     enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
     e_shot    = { angle: 0, power: 0 }
-    bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 1 },
+    bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 },
     explosion = { x: 0, y: 0, frames: 0 },
     routers   = [
       { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 40, active: false },
@@ -81,7 +82,26 @@ function renderBackground() {
 function renderCannon(cannon) {
   // render cannon
   ctx.fillStyle = COLOR.WHITE;
-  ctx.fillRect(cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
+  ctx.drawImage(icon, cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
+
+  // render icon
+  if (cannon == player) {
+    ctx.fillStyle = COLOR.WHITE;
+    ctx.fillRect(cannon.x - 3, cannon.y - 6, 2, 3);
+    ctx.fillRect(cannon.x + 1, cannon.y - 6, 2, 3);
+    ctx.fillRect(cannon.x - 4, cannon.y, 8, 2);
+    ctx.fillRect(cannon.x - 5, cannon.y - 1, 2, 2);
+    ctx.fillRect(cannon.x + 3, cannon.y - 1, 2, 2);
+  } else {
+    ctx.fillStyle = COLOR.WHITE;
+    ctx.fillRect(cannon.x - 4, cannon.y - 6, 8, 4);
+    ctx.fillRect(cannon.x - 2, cannon.y - 2, 5, 3);
+    ctx.fillStyle = COLOR.BLACK;
+    ctx.fillRect(cannon.x - 3, cannon.y - 5, 2, 2);
+    ctx.fillRect(cannon.x + 1, cannon.y - 5, 2, 2);
+    ctx.fillRect(cannon.x - 1, cannon.y - 1, 1, 2);
+    ctx.fillRect(cannon.x + 1, cannon.y - 1, 1, 2);
+  }
 
   // render firewall
   ctx.strokeStyle = COLOR.WHITE;
@@ -170,6 +190,9 @@ function renderExplosion() {
   ctx.fillStyle = COLOR.RED;
   ctx.fillRect(explosion.x - 2, explosion.y - 10, 4, 20);
   ctx.fillRect(explosion.x - 10, explosion.y - 2, 20, 4);
+  ctx.fillStyle = COLOR.YELLOW;
+  ctx.fillRect(explosion.x - 2, explosion.y - 6, 4, 12);
+  ctx.fillRect(explosion.x - 6, explosion.y - 2, 12, 4);
 };
 
 function render() {
@@ -244,8 +267,8 @@ function restart() {
   document.addEventListener('keypress', spaceStart, false);
 
   started = false;
-  player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0 },
-  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0 },
+  player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
+  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
   bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
 }
 
@@ -393,7 +416,6 @@ function update(dt) {
       } else if (player.fire && player.power < 255) {
         // continue firing
         player.power += 1;
-        console.log('power = ' + player.power);
       }
       else if (!player.fire && player.firing) {
         // finish firing
@@ -431,10 +453,8 @@ function update(dt) {
   // move angle
   if (player.angleUp && player.angle < 90) {
     player.angle += 0.5;
-    console.log('angle = ' + player.angle);
   } else if (player.angleDown && player.angle > 0) {
     player.angle -= 0.5;
-    console.log('angle = ' + player.angle);
   }
 }
 
@@ -483,6 +503,17 @@ function spaceStart(ev) {
   }
 }
 
+function load() {
+  document.addEventListener('keypress', spaceStart, false);
+  frame(); // start the first frame
+}
 
-document.addEventListener('keypress', spaceStart, false);
-frame(); // start the first frame
+
+
+function loadImage(src, callback) {
+  icon = document.createElement('img');
+  icon.addEventListener('load', function() { callback(); } , false);
+  icon.src = src;
+}
+
+loadImage("images/comm_terminal.png", load);
