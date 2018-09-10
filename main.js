@@ -23,7 +23,7 @@ var canvas    = document.getElementById('canvas'),
     turn      = null,
     icon      = null,
     player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
-    enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
+    enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
     e_shot    = { angle: 0, power: 0 }
     bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 },
     explosion = { x: 0, y: 0, frames: 0 },
@@ -268,29 +268,33 @@ function restart() {
 
   started = false;
   player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
-  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
+  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
   bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
+  explosion = { x: 0, y: 0, frames: 0 };
 }
 
 function nextRound() {
   turn = PLAYER;
 
   resetBullet();
-  //generateRouters();
+  generateRouters();
 }
 
 function enemyTurn() {
   turn = ENEMY;
   let r = Math.floor(Math.random() * 3);
+  let miss_chance = 10 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3);
 
-  let a_rand  = Math.floor(Math.random() * 30) / 10;
-      a_rand -= Math.floor(Math.random() * 30) / 10;
+  let a_rand  = Math.floor(Math.random() * (miss_chance / 3));
+      a_rand -= Math.floor(Math.random() * (miss_chance / 3));
 
-  let p_rand  = Math.floor(Math.random() * 100) / 10;
-      p_rand -= Math.floor(Math.random() * 100) / 10;
+  let p_rand  = Math.floor(Math.random() * miss_chance);
+      p_rand -= Math.floor(Math.random() * miss_chance);
 
   e_shot.angle = 180 - routers[r].angle + a_rand;
   e_shot.power = routers[r].power + p_rand;
+
+  console.log((routers[r].angle + a_rand) + " (" + routers[r].angle + ') ' + e_shot.power + " (" + routers[r].power + ")");
 
   resetBullet();
 }
@@ -467,7 +471,12 @@ function explode() {
 function miss() {
   SOUNDS.MISS.play();
   explode();
-  bullet.shooter == PLAYER ? enemyTurn() : nextRound();
+  if (bullet.shooter == PLAYER) {
+    enemyTurn();
+  } else {
+    enemy.misses++;
+    nextRound();
+  }
 }
 
 function hitEnemy() {
@@ -480,6 +489,7 @@ function hitEnemy() {
 function hitPlayer() {
   SOUNDS.HIT.play();
   explode();
+  enemy.misses = 0;
   player.hp = Math.max(player.hp - bullet.damage, 0);
   nextRound();
 }
