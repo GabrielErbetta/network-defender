@@ -9,23 +9,24 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00', YELLOW: '#FF0' },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 },
     SOUNDS  = {
-      SHOOT:   new Audio('sounds/shoot_22.wav'),
-      HIT:     new Audio('sounds/hit_22.wav'),
-      MISS:    new Audio('sounds/miss_22.wav'),
-      POWERUP: new Audio('sounds/powerup_22.wav')
+      SHOOT:   new Audio('sounds/shoot_11.wav'),
+      HIT:     new Audio('sounds/hit_11.wav'),
+      MISS:    new Audio('sounds/miss_11.wav'),
+      POWERUP: new Audio('sounds/powerup_11.wav')
     };
 
-var canvas  = document.getElementById('canvas'),
-    ctx     = canvas.getContext('2d'),
-    width   = canvas.width = MAP.w,
-    height  = canvas.height = MAP.h,
-    started = false,
-    turn    = null,
-    player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
-    enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
-    e_shot  = { angle: 0, power: 0 }
-    bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 1 },
-    routers = [
+var canvas    = document.getElementById('canvas'),
+    ctx       = canvas.getContext('2d'),
+    width     = canvas.width = MAP.w,
+    height    = canvas.height = MAP.h,
+    started   = false,
+    turn      = null,
+    player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
+    enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1 },
+    e_shot    = { angle: 0, power: 0 }
+    bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 1 },
+    explosion = { x: 0, y: 0, frames: 0 },
+    routers   = [
       { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 40, active: false },
       { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.YELLOW, size: 30, active: false },
       { x: 0, y: 0, angle: 0, power: 0, damage: 4, color: COLOR.RED, size: 20, active: false }
@@ -79,11 +80,11 @@ function renderBackground() {
 
 function renderCannon(cannon) {
   // render cannon
-  ctx.fillStyle = COLOR.GREEN;
+  ctx.fillStyle = COLOR.WHITE;
   ctx.fillRect(cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
 
   // render firewall
-  ctx.strokeStyle = COLOR.RED;
+  ctx.strokeStyle = COLOR.WHITE;
   ctx.lineWidth = 3;
 
   ctx.beginPath();
@@ -94,7 +95,7 @@ function renderCannon(cannon) {
   //render aim
   let aim_x = cannon.x + PSIZE * Math.cos(toRad(360 - cannon.angle));
   let aim_y = cannon.y + PSIZE * Math.sin(toRad(360 - cannon.angle));
-  ctx.fillStyle = COLOR.RED;
+  ctx.fillStyle = COLOR.WHITE;
 
   ctx.beginPath();
   ctx.moveTo(cannon.x + PSIZE * Math.cos(toRad(350 - cannon.angle)), cannon.y + PSIZE * Math.sin(toRad(350 - cannon.angle)));
@@ -165,6 +166,12 @@ function renderBullet() {
   ctx.stroke();
 }
 
+function renderExplosion() {
+  ctx.fillStyle = COLOR.RED;
+  ctx.fillRect(explosion.x - 2, explosion.y - 10, 4, 20);
+  ctx.fillRect(explosion.x - 10, explosion.y - 2, 20, 4);
+};
+
 function render() {
   renderBackground();
 
@@ -208,6 +215,12 @@ function render() {
     if (bullet.active) {
       renderBullet();
     }
+
+    // render explosion
+    if (explosion.frames > 0) {
+      renderExplosion();
+      explosion.frames--;
+    }
   }
 }
 
@@ -240,7 +253,7 @@ function nextRound() {
   turn = PLAYER;
 
   resetBullet();
-  generateRouters();
+  //generateRouters();
 }
 
 function enemyTurn() {
@@ -250,8 +263,8 @@ function enemyTurn() {
   let a_rand  = Math.floor(Math.random() * 30) / 10;
       a_rand -= Math.floor(Math.random() * 30) / 10;
 
-  let p_rand  = Math.floor(Math.random() * 50) / 10;
-      p_rand -= Math.floor(Math.random() * 50) / 10;
+  let p_rand  = Math.floor(Math.random() * 100) / 10;
+      p_rand -= Math.floor(Math.random() * 100) / 10;
 
   e_shot.angle = 180 - routers[r].angle + a_rand;
   e_shot.power = routers[r].power + p_rand;
@@ -303,7 +316,7 @@ function generateRouters() {
 
     angles.push(theta);
 
-    rx = Math.floor(Math.random() * 200) + (MAP.w / 2 - 100);
+    rx = Math.floor(Math.random() * 200) + (MAP.w / 2 - 100) - player.x;
     ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * velocity**2 * Math.cos(toRad(theta))**2)) * rx**2;
 
     routers[i].x = rx + player.x;
@@ -425,28 +438,38 @@ function update(dt) {
   }
 }
 
+function explode() {
+  explosion.x = bullet.x;
+  explosion.y = bullet.y;
+  explosion.frames = 30;
+}
+
 function miss() {
   SOUNDS.MISS.play();
+  explode();
   bullet.shooter == PLAYER ? enemyTurn() : nextRound();
 }
 
 function hitEnemy() {
-  enemy.hp = Math.max(enemy.hp - bullet.damage, 0);
   SOUNDS.HIT.play();
+  explode();
+  enemy.hp = Math.max(enemy.hp - bullet.damage, 0);
   enemyTurn();
 }
 
 function hitPlayer() {
-  player.hp = Math.max(player.hp - bullet.damage, 0);
   SOUNDS.HIT.play();
+  explode();
+  player.hp = Math.max(player.hp - bullet.damage, 0);
   nextRound();
 }
 
 function hitRouter(i) {
   if (routers[i].damage > bullet.damage) {
+    SOUNDS.POWERUP.pause();
+    SOUNDS.POWERUP.play();
     bullet.damage = routers[i].damage;
     bullet.color = routers[i].color;
-    SOUNDS.POWERUP.play();
   }
 }
 

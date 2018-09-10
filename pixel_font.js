@@ -1,4 +1,4 @@
-var letters = letters = {
+var letters = {
   'A': [
       [, 1],
       [1, , 1],
@@ -252,32 +252,33 @@ var letters = letters = {
       [1,1,1]
   ],
   ' ': [
-      [, ,],
-      [, ,],
-      [, ,],
-      [, ,],
-      [, ,]
+      [],
+      [],
+      [],
+      [],
+      []
   ],
   '.': [
-      [, ,],
-      [, ,],
-      [, ,],
-      [, ,],
-      [,1,]
+      [],
+      [],
+      [],
+      [],
+      [,1]
   ],
   ':': [
-      [, ,],
-      [,1,],
-      [, ,],
-      [, ,],
-      [,1,]
+      [],
+      [,1],
+      [],
+      [],
+      [,1]
   ]
 };
 
 var canvas = document.getElementById('canvas');
 var context = canvas.getContext('2d');
 
-function draw(string, size, pos_x, pos_y, color = 'white') {
+function draw(string, size, pos_x, pos_y, color) {
+  color = typeof(color) == "undefined" ? "#fff" : color;
   var needed = [];
   string = string.toUpperCase(); // because I only did uppercase letters
   for (var i = 0; i < string.length; i++) {
