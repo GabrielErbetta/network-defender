@@ -8,6 +8,7 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     ENEMY   = 2,
     COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00', YELLOW: '#FF0' },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 },
+    IMAGES  = { PLAYER_ICON: "images/comm_terminal.png", IE_ICON: "images/ie_icon.png", size: 2 },
     SOUNDS  = {
       SHOOT:   new Audio('sounds/shoot_11.wav'),
       HIT:     new Audio('sounds/hit_11.wav'),
@@ -19,7 +20,11 @@ var canvas    = document.getElementById('canvas'),
     ctx       = canvas.getContext('2d'),
     width     = canvas.width = MAP.w,
     height    = canvas.height = MAP.h,
+    images    = { size: 0 },
     started   = false,
+    ended     = false,
+    ending    = false,
+    end_delay = 0,
     turn      = null,
     icon      = null,
     player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
@@ -66,6 +71,31 @@ function frame() {
   requestAnimationFrame(frame, canvas);
 }
 
+function renderTitle() {
+  let title = "Network Defender";
+  draw(title, 10, MAP.w / 2 - (title.length * 21), MAP.h / 2 - 130);
+
+  // render subtitle
+  let subtitle = "Space to start";
+  draw(subtitle, 4, MAP.w / 2 - (subtitle.length * 8) + 5, MAP.h / 2);
+
+  // render instructions
+  let instruction = "Up and down to change angle";
+  draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 100);
+  instruction = "Hold space to shoot";
+  draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 130);
+  instruction = "Hit powerups for damage boost";
+  draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 160);
+
+  //render powerups
+  let powerup = "Green: 2x damage";
+  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 100, COLOR.GREEN);
+  powerup = "Yellow: 3x damage";
+  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.YELLOW);
+  powerup = "Red: 4x damage";
+  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 160, COLOR.RED);
+}
+
 function renderBackground() {
   // clear canvas
   ctx.clearRect(0,0,MAP.w,MAP.h);
@@ -81,8 +111,7 @@ function renderBackground() {
 
 function renderCannon(cannon) {
   // render cannon
-  ctx.fillStyle = COLOR.WHITE;
-  ctx.drawImage(icon, cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
+  ctx.drawImage(images.player_icon, cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
 
   // render icon
   if (cannon == player) {
@@ -193,37 +222,42 @@ function renderExplosion() {
   ctx.fillStyle = COLOR.YELLOW;
   ctx.fillRect(explosion.x - 2, explosion.y - 6, 4, 12);
   ctx.fillRect(explosion.x - 6, explosion.y - 2, 12, 4);
-};
+}
+
+function renderGameOver() {
+  // render cable
+  ctx.fillStyle = COLOR.WHITE;
+  ctx.fillRect(MAP.w / 2 - 200, MAP.h / 2 - 3, 150, 6);
+  ctx.fillRect(MAP.w / 2 - 50, MAP.h / 2 - 10, 50, 20);
+
+  // render port
+  ctx.fillRect(MAP.w / 2 + 50, MAP.h / 2 - 90, 120, 180);
+  ctx.fillStyle = COLOR.BLACK;
+  ctx.fillRect(MAP.w / 2 + 95, MAP.h / 2 - 15, 30, 30);
+  ctx.fillRect(MAP.w / 2 + 102, MAP.h / 2 - 21, 16, 6);
+
+  // render texts
+  draw("Game Over", 8, MAP.w / 2 - 160, MAP.h / 2 - 180);
+  draw("You are disconnected", 4, MAP.w / 2 - 160, MAP.h / 2 + 160);
+  draw("Press space to try again", 4, MAP.w / 2 - 185, MAP.h / 2 + 190);
+}
+
+function renderVictory() {
+  // render icon
+  ctx.drawImage(images.ie_icon, MAP.w / 2 - 100, MAP.h / 2 - 100, 200, 200);
+
+  // render texts
+  draw("Congratulations", 8, MAP.w / 2 - 250, MAP.h / 2 - 180);
+  draw("Your network is safe", 4, MAP.w / 2 - 162, MAP.h / 2 + 160);
+  draw("Press space to restart", 4, MAP.w / 2 - 168, MAP.h / 2 + 190);
+}
 
 function render() {
   renderBackground();
 
   if (!started) {
-    // render title
-    let title = "Network Defender";
-    draw(title, 10, MAP.w / 2 - (title.length * 21), MAP.h / 2 - 130);
-
-    // render subtitle
-    let subtitle = "Space to start";
-    draw(subtitle, 4, MAP.w / 2 - (subtitle.length * 8) + 5, MAP.h / 2);
-
-    // render instructions
-    let instruction = "Up and down to change angle";
-    draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 100);
-    instruction = "Hold space to shoot";
-    draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 130);
-    instruction = "Hit powerups for damage boost";
-    draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 160);
-
-    //render powerups
-    let powerup = "Green: 2x damage";
-    draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 100, COLOR.GREEN);
-    powerup = "Yellow: 3x damage";
-    draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.YELLOW);
-    powerup = "Red: 4x damage";
-    draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 160, COLOR.RED);
-  } else {
-    renderBackground();
+    renderTitle();
+  } else if (!ended) {
     renderCannon(player);
     renderCannon(enemy);
 
@@ -244,6 +278,12 @@ function render() {
       renderExplosion();
       explosion.frames--;
     }
+  } else {
+    if (player.hp <= 0) {
+      renderGameOver();
+    } else {
+      renderVictory();
+    }
   }
 }
 
@@ -262,14 +302,16 @@ function start() {
 }
 
 function restart() {
+  document.removeEventListener('keypress', restart);
   document.removeEventListener('keydown', keyDown);
   document.removeEventListener('keyup',   keyUp);
   document.addEventListener('keypress', spaceStart, false);
 
-  started = false;
-  player  = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
-  enemy   = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
-  bullet  = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
+  started   = false;
+  ended     = false;
+  player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
+  enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
+  bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
   explosion = { x: 0, y: 0, frames: 0 };
 }
 
@@ -283,7 +325,7 @@ function nextRound() {
 function enemyTurn() {
   turn = ENEMY;
   let r = Math.floor(Math.random() * 3);
-  let miss_chance = 10 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3);
+  let miss_chance = Math.max(r*2 - 1, 10 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
 
   let a_rand  = Math.floor(Math.random() * (miss_chance / 3));
       a_rand -= Math.floor(Math.random() * (miss_chance / 3));
@@ -394,14 +436,22 @@ function collisionDetection() {
 }
 
 function update(dt) {
-  if (enemy.hp <= 0) {
-    // enemy dead
-    alert("YOU WIN!");
-    restart();
+  if (ended) return;
+
+  if (ending) {
+    if (end_delay > 0) {
+      end_delay--;
+    } else {
+      ending = false;
+      ended = true;
+      document.addEventListener('keypress', restart, false);
+    }
+  } else if (enemy.hp <= 0) {
+    ending = true;
+    end_delay = 10;
   } else if (player.hp <= 0) {
-    // player dead
-    alert("YOU LOSE!");
-    restart();
+    ending = true;
+    end_delay = 10;
   } else if (bullet.active) {
     // bullet fired
     // move bullet
@@ -440,7 +490,7 @@ function update(dt) {
         if (!enemy.firing) {
           enemy.power = 0;
           enemy.firing = true;
-        } else if (enemy.power < e_shot.power) {
+        } else if (enemy.power < e_shot.power && enemy.power < 255) {
           enemy.power += 1;
         } else {
           let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 2;
@@ -514,16 +564,21 @@ function spaceStart(ev) {
 }
 
 function load() {
-  document.addEventListener('keypress', spaceStart, false);
-  frame(); // start the first frame
+  images.size++;
+
+  if (images.size == IMAGES.size) {
+    document.addEventListener('keypress', spaceStart, false);
+    frame(); // start the first frame
+  }
+}
+
+function loadImage(src, name) {
+  images[name] = document.createElement('img');
+  images[name].addEventListener('load', load() , false);
+  images[name].src = src;
 }
 
 
 
-function loadImage(src, callback) {
-  icon = document.createElement('img');
-  icon.addEventListener('load', function() { callback(); } , false);
-  icon.src = src;
-}
-
-loadImage("images/comm_terminal.png", load);
+loadImage(IMAGES.PLAYER_ICON, "player_icon");
+loadImage(IMAGES.IE_ICON, "ie_icon");
