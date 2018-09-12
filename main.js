@@ -6,7 +6,7 @@ var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
     BSIZE   = 4,
     PLAYER  = 1,
     ENEMY   = 2,
-    COLOR   = { BLACK: '#000', WHITE: '#FFF', GREEN: '#093', RED: '#F00', YELLOW: '#FF0' },
+    COLOR   = { BLACK: '#000', WHITE: '#FFF', GRAY: '#666', GREEN: '#093', RED: '#F00', YELLOW: '#FF0', DARK_YELLOW: '#afaf00' },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 },
     IMAGES  = { PLAYER_ICON: "images/comm_terminal.png", IE_ICON: "images/ie_icon.png", size: 2 },
     SOUNDS  = {
@@ -26,6 +26,7 @@ var canvas    = document.getElementById('canvas'),
     ending    = false,
     end_delay = 0,
     turn      = null,
+    reset_in  = 3,
     icon      = null,
     player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
     enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
@@ -33,9 +34,9 @@ var canvas    = document.getElementById('canvas'),
     bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 },
     explosion = { x: 0, y: 0, frames: 0 },
     routers   = [
-      { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 40, active: false },
-      { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.YELLOW, size: 30, active: false },
-      { x: 0, y: 0, angle: 0, power: 0, damage: 4, color: COLOR.RED, size: 20, active: false }
+      { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 30, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.DARK_YELLOW, size: 25, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 4, color: COLOR.RED, size: 15, active: false }
     ];
 
 var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
@@ -91,7 +92,7 @@ function renderTitle() {
   let powerup = "Green: 2x damage";
   draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 100, COLOR.GREEN);
   powerup = "Yellow: 3x damage";
-  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.YELLOW);
+  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.DARK_YELLOW);
   powerup = "Red: 4x damage";
   draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 160, COLOR.RED);
 }
@@ -200,8 +201,40 @@ function renderCannon(cannon) {
 }
 
 function renderRouter(router) {
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = COLOR.WHITE;
   ctx.fillStyle = router.color;
-  ctx.fillRect(router.x - (router.size / 2), router.y - (router.size / 2), router.size, router.size);
+
+  // render circle
+  ctx.beginPath();
+  ctx.arc(router.x, router.y, router.size, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+
+  // render icons
+  ctx.fillStyle = COLOR.WHITE;
+  ctx.strokeStyle = COLOR.BLACK;
+  ctx.lineWidth = 2;
+  ctx.fillRect(router.x - 10, router.y + 7, 4, -5);
+  ctx.strokeRect(router.x - 10, router.y + 7, 4, -5);
+
+  ctx.fillRect(router.x - 5, router.y + 7, 4, -8);
+  ctx.strokeRect(router.x - 5, router.y + 7, 4, -8);
+
+  if (router.damage == 2) ctx.fillStyle = COLOR.GRAY;
+  ctx.fillRect(router.x - 0, router.y + 7, 4, -11);
+  ctx.strokeRect(router.x - 0, router.y + 7, 4, -11);
+
+  if (router.damage == 3) ctx.fillStyle = COLOR.GRAY;
+  ctx.fillRect(router.x + 5, router.y + 7, 4, -14);
+  ctx.strokeRect(router.x + 5, router.y + 7, 4, -14);
+}
+
+function renderRouterReset() {
+  let s = reset_in > 1 ? "s" : "";
+  draw("Damage boosters will move in " + reset_in + " turn" + s, 2, BORDER, 0 + 20);
 }
 
 function renderBullet() {
@@ -262,6 +295,7 @@ function render() {
     renderCannon(enemy);
 
     // render routers
+    renderRouterReset();
     for (let i = 0; i < routers.length; i++) {
       if (routers[i].active) {
         renderRouter(routers[i]);
@@ -309,6 +343,7 @@ function restart() {
 
   started   = false;
   ended     = false;
+  reset_in  = 3;
   player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
   enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
   bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
@@ -319,13 +354,18 @@ function nextRound() {
   turn = PLAYER;
 
   resetBullet();
-  generateRouters();
+
+  reset_in--;
+  if (reset_in <= 0) {
+    reset_in = 2;
+    generateRouters();
+  }
 }
 
 function enemyTurn() {
   turn = ENEMY;
   let r = Math.floor(Math.random() * 3);
-  let miss_chance = Math.max(r*2 - 1, 10 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
+  let miss_chance = Math.max(r*2 + 2, 20 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
 
   let a_rand  = Math.floor(Math.random() * (miss_chance / 3));
       a_rand -= Math.floor(Math.random() * (miss_chance / 3));
@@ -351,7 +391,6 @@ function onkey(ev, key, down) {
 }
 
 function resetBullet() {
-  //bullet = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false };
   bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 };
 }
 
@@ -375,13 +414,13 @@ function generateRouters() {
           diff = Math.abs(theta - angles[j]);
           min_diff = Math.min(diff, min_diff);
         }
-      } while (min_diff < 3);
+      } while (min_diff < 4);
 
       velocity = Math.sqrt((distance * GRAVITY) / Math.sin(toRad(2 * theta)));
       power = velocity / 2;
 
       maxh = (velocity**2 * Math.sin(toRad(theta))**2) / (2 * GRAVITY);
-    } while (power > 255 || maxh > MAP.h - 100);
+    } while (power > 255 || maxh > MAP.h - (MAP.h - player.y) - BORDER - (routers[i].size) - 5);
 
     angles.push(theta);
 
@@ -406,9 +445,9 @@ function collisionDetection() {
 
   // detect collision with routers
   for (let i = 0; i < routers.length; i++) {
-    let c1 = bullet.x - Math.max(routers[i].x - routers[i].size / 2, Math.min(bullet.x, routers[i].x + routers[i].size / 2));
-    let c2 = bullet.y - Math.max(routers[i].y - routers[i].size / 2, Math.min(bullet.y, routers[i].y + routers[i].size / 2));
-    if ((c1 ** 2 + c2 ** 2) < (BSIZE ** 2))
+    let c1 = bullet.x - routers[i].x;
+    let c2 = bullet.y - routers[i].y;
+    if ((c1 ** 2 + c2 ** 2) < (BSIZE + routers[i].size) ** 2)
       hitRouter(i);
   }
 
