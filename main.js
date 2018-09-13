@@ -1,8 +1,8 @@
-var MAP     = { w: 1200, h: 600 }, // the size of the map (in tiles)
-    BORDER  = 36,                // the size of the border
-    GRAVITY = 9.8 * 12,    // very exagerated gravity (6x)
-    ACCEL   = 1 / 5,              // horizontal acceleration -  take 1/2 second to reach maxdx
-    PSIZE   = 20,              // horizontal acceleration -  take 1/2 second to reach maxdx
+var MAP     = { w: 1200, h: 600 },
+    BORDER  = 36,
+    GRAVITY = 9.8 * 12,
+    ACCEL   = 1 / 5,
+    PSIZE   = 20,
     BSIZE   = 4,
     PLAYER  = 1,
     ENEMY   = 2,
@@ -212,7 +212,6 @@ function renderRouter(router) {
   ctx.fill();
   ctx.stroke();
 
-
   // render icons
   ctx.fillStyle = COLOR.WHITE;
   ctx.strokeStyle = COLOR.BLACK;
@@ -344,8 +343,8 @@ function restart() {
   started   = false;
   ended     = false;
   reset_in  = 3;
-  player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
-  enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
+  player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 };
+  enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 };
   bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
   explosion = { x: 0, y: 0, frames: 0 };
 }
@@ -365,7 +364,7 @@ function nextRound() {
 function enemyTurn() {
   turn = ENEMY;
   let r = Math.floor(Math.random() * 3);
-  let miss_chance = Math.max(r*2 + 2, 20 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
+  let miss_chance = Math.max(r*2, 15 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
 
   let a_rand  = Math.floor(Math.random() * (miss_chance / 3));
       a_rand -= Math.floor(Math.random() * (miss_chance / 3));
@@ -375,8 +374,6 @@ function enemyTurn() {
 
   e_shot.angle = 180 - routers[r].angle + a_rand;
   e_shot.power = routers[r].power + p_rand;
-
-  console.log((routers[r].angle + a_rand) + " (" + routers[r].angle + ') ' + e_shot.power + " (" + routers[r].power + ")");
 
   resetBullet();
 }
@@ -521,10 +518,18 @@ function update(dt) {
       }
     } else {
       // enemy turn
-      if (enemy.angle < e_shot.angle - 0.1) {
-        enemy.angle += 0.1;
-      } else if (enemy.angle > e_shot.angle + 0.1) {
-        enemy.angle -= 0.1;
+      if (enemy.angle < e_shot.angle - 0.2) {
+        if (enemy.angle < e_shot.angle - 1) {
+          enemy.angle += 1;
+        } else {
+          enemy.angle += 0.2;
+        }
+      } else if (enemy.angle > e_shot.angle + 0.2) {
+        if (enemy.angle > e_shot.angle + 1) {
+          enemy.angle -= 1;
+        } else {
+          enemy.angle -= 0.2;
+        }
       } else {
         if (!enemy.firing) {
           enemy.power = 0;
