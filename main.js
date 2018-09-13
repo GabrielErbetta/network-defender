@@ -9,10 +9,10 @@ var MAP     = { w: 1200, h: 600 },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 },
     IMAGES  = { CANNON: "images/cannon.png", IE_ICON: "images/ie_icon.png", size: 2 },
     SOUNDS  = {
-      HIT:     new Audio('sounds/hit.wav'),
-      MISS:    new Audio('sounds/miss.wav'),
-      POWERUP: new Audio('sounds/powerup.wav'),
-      SHOOT:   new Audio('sounds/shoot.wav')
+      HIT:     new Audio('sounds/hit.mp3'),
+      MISS:    new Audio('sounds/miss.mp3'),
+      POWERUP: new Audio('sounds/powerup.mp3'),
+      SHOOT:   new Audio('sounds/shoot.mp3')
     };
 
 var canvas        = document.getElementById('canvas'),
