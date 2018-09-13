@@ -78,7 +78,7 @@ function frame() {
 }
 
 function renderTitle() {
-  var title = "Network Defender";
+  var title = "Network Defense";
   draw(title, 10, MAP.w / 2 - (title.length * 21), MAP.h / 2 - 130);
 
   // render subtitle
