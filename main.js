@@ -1,47 +1,43 @@
 var MAP     = { w: 1200, h: 600 },
     BORDER  = 36,
     GRAVITY = 9.8 * 12,
-    ACCEL   = 1 / 5,
     PSIZE   = 20,
     BSIZE   = 4,
     PLAYER  = 1,
     ENEMY   = 2,
-    COLOR   = { BLACK: '#000', WHITE: '#FFF', GRAY: '#666', GREEN: '#093', RED: '#F00', YELLOW: '#FF0', DARK_YELLOW: '#afaf00' },
+    COLOR   = { BLK: '#000', WHT: '#FFF', GRY: '#666', GRN: '#093', RED: '#F00', YLW: '#FF0', DRK_YLW: '#afaf00' },
     KEY     = { UP: 38, DOWN: 40, SPACE: 32 },
-    IMAGES  = { PLAYER_ICON: "images/comm_terminal.png", IE_ICON: "images/ie_icon.png", size: 2 },
+    IMAGES  = { CANNON: "images/cannon.png", IE_ICON: "images/ie_icon.png", size: 2 },
     SOUNDS  = {
-      SHOOT:   new Audio('sounds/shoot_11.wav'),
-      HIT:     new Audio('sounds/hit_11.wav'),
-      MISS:    new Audio('sounds/miss_11.wav'),
-      POWERUP: new Audio('sounds/powerup_11.wav')
+      HIT:     new Audio('sounds/hit.wav'),
+      MISS:    new Audio('sounds/miss.wav'),
+      POWERUP: new Audio('sounds/powerup.wav'),
+      SHOOT:   new Audio('sounds/shoot.wav')
     };
 
-var canvas    = document.getElementById('canvas'),
-    ctx       = canvas.getContext('2d'),
-    width     = canvas.width = MAP.w,
-    height    = canvas.height = MAP.h,
-    images    = { size: 0 },
-    started   = false,
-    ended     = false,
-    ending    = false,
-    end_delay = 0,
-    turn      = null,
-    reset_in  = 3,
-    icon      = null,
-    player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 },
-    enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 },
-    e_shot    = { angle: 0, power: 0 }
-    bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 },
-    explosion = { x: 0, y: 0, frames: 0 },
-    routers   = [
-      { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GREEN, size: 30, active: false },
-      { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.DARK_YELLOW, size: 25, active: false },
+var canvas        = document.getElementById('canvas'),
+    ctx           = canvas.getContext('2d'),
+    images        = { size: 0 },
+    started,
+    ended,
+    ending        = false,
+    end_delay     = 0,
+    turn          = null,
+    reset_in,
+    icon          = null,
+    player,
+    enemy,
+    e_shot,
+    bullet,
+    explosion,
+    routers       = [
+      { x: 0, y: 0, angle: 0, power: 0, damage: 2, color: COLOR.GRN, size: 30, active: false },
+      { x: 0, y: 0, angle: 0, power: 0, damage: 3, color: COLOR.DRK_YLW, size: 25, active: false },
       { x: 0, y: 0, angle: 0, power: 0, damage: 4, color: COLOR.RED, size: 15, active: false }
     ];
 
-var gradient = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
-    gradient.addColorStop(0, '#000');
-    gradient.addColorStop(1, '#434343');
+    canvas.width  = MAP.w;
+    canvas.height = MAP.h;
 
 var fps  = 60,
     step = 1/fps,
@@ -49,7 +45,16 @@ var fps  = 60,
     now, last = timestamp();
 
 
-
+function setVariables() {
+  started   = false;
+  ended     = false;
+  reset_in  = 3;
+  player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, multiplier: 0 };
+  enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, multiplier: 1, misses: 0 };
+  e_shot    = { angle: 0, power: 0 };
+  bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHT, damage: 10, active: false, shooter: 0 };
+  explosion = { x: 0, y: 0, frames: 0 };
+}
 
 function timestamp() {
   if (window.performance && window.performance.now)
@@ -73,15 +78,15 @@ function frame() {
 }
 
 function renderTitle() {
-  let title = "Network Defender";
+  var title = "Network Defender";
   draw(title, 10, MAP.w / 2 - (title.length * 21), MAP.h / 2 - 130);
 
   // render subtitle
-  let subtitle = "Space to start";
+  var subtitle = "Space to start";
   draw(subtitle, 4, MAP.w / 2 - (subtitle.length * 8) + 5, MAP.h / 2);
 
   // render instructions
-  let instruction = "Up and down to change angle";
+  var instruction = "Up and down to change angle";
   draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 100);
   instruction = "Hold space to shoot";
   draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 130);
@@ -89,44 +94,48 @@ function renderTitle() {
   draw(instruction, 3, MAP.w / 4 - 170, MAP.h / 2 + 160);
 
   //render powerups
-  let powerup = "Green: 2x damage";
-  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 100, COLOR.GREEN);
+  var powerup = "Green: 2x damage";
+  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 100, COLOR.GRN);
   powerup = "Yellow: 3x damage";
-  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.DARK_YELLOW);
+  draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 130, COLOR.DRK_YLW);
   powerup = "Red: 4x damage";
   draw(powerup, 3, (MAP.w / 4 * 3) - 110, MAP.h / 2 + 160, COLOR.RED);
 }
 
 function renderBackground() {
+  var g = ctx.createRadialGradient(MAP.w / 2, MAP.h / 2, 0, MAP.w / 2, MAP.h / 2, MAP.w / 2);
+      g.addColorStop(0, '#000');
+      g.addColorStop(1, '#444');
+
   // clear canvas
   ctx.clearRect(0,0,MAP.w,MAP.h);
 
   // render border
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, MAP.w, MAP.h);
 
   // render background
-  ctx.fillStyle = COLOR.BLACK;
+  ctx.fillStyle = COLOR.BLK;
   ctx.fillRect(BORDER, BORDER, (MAP.w) - BORDER * 2, (MAP.h) - BORDER * 2);
 }
 
 function renderCannon(cannon) {
   // render cannon
-  ctx.drawImage(images.player_icon, cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
+  ctx.drawImage(images.cannon, cannon.x - PSIZE / 2, cannon.y - (PSIZE / 2), PSIZE, PSIZE);
 
   // render icon
   if (cannon == player) {
-    ctx.fillStyle = COLOR.WHITE;
+    ctx.fillStyle = COLOR.WHT;
     ctx.fillRect(cannon.x - 3, cannon.y - 6, 2, 3);
     ctx.fillRect(cannon.x + 1, cannon.y - 6, 2, 3);
     ctx.fillRect(cannon.x - 4, cannon.y, 8, 2);
     ctx.fillRect(cannon.x - 5, cannon.y - 1, 2, 2);
     ctx.fillRect(cannon.x + 3, cannon.y - 1, 2, 2);
   } else {
-    ctx.fillStyle = COLOR.WHITE;
+    ctx.fillStyle = COLOR.WHT;
     ctx.fillRect(cannon.x - 4, cannon.y - 6, 8, 4);
     ctx.fillRect(cannon.x - 2, cannon.y - 2, 5, 3);
-    ctx.fillStyle = COLOR.BLACK;
+    ctx.fillStyle = COLOR.BLK;
     ctx.fillRect(cannon.x - 3, cannon.y - 5, 2, 2);
     ctx.fillRect(cannon.x + 1, cannon.y - 5, 2, 2);
     ctx.fillRect(cannon.x - 1, cannon.y - 1, 1, 2);
@@ -134,7 +143,7 @@ function renderCannon(cannon) {
   }
 
   // render firewall
-  ctx.strokeStyle = COLOR.WHITE;
+  ctx.strokeStyle = COLOR.WHT;
   ctx.lineWidth = 3;
 
   ctx.beginPath();
@@ -143,9 +152,9 @@ function renderCannon(cannon) {
   ctx.stroke();
 
   //render aim
-  let aim_x = cannon.x + PSIZE * Math.cos(toRad(360 - cannon.angle));
-  let aim_y = cannon.y + PSIZE * Math.sin(toRad(360 - cannon.angle));
-  ctx.fillStyle = COLOR.WHITE;
+  var aim_x = cannon.x + PSIZE * Math.cos(toRad(360 - cannon.angle));
+  var aim_y = cannon.y + PSIZE * Math.sin(toRad(360 - cannon.angle));
+  ctx.fillStyle = COLOR.WHT;
 
   ctx.beginPath();
   ctx.moveTo(cannon.x + PSIZE * Math.cos(toRad(350 - cannon.angle)), cannon.y + PSIZE * Math.sin(toRad(350 - cannon.angle)));
@@ -155,35 +164,35 @@ function renderCannon(cannon) {
   ctx.fill();
 
   // render lifebar
-  let hp_x = (MAP.w - BORDER) * cannon.cannon_multiplier;
-  ctx.fillStyle = COLOR.BLACK;
+  var hp_x = (MAP.w - BORDER) * cannon.multiplier;
+  ctx.fillStyle = COLOR.BLK;
   ctx.fillRect(hp_x + 8, MAP.h - 8, BORDER - 16, -86);
   ctx.fillRect(hp_x + 14, MAP.h - 94, 8, -4);
 
   // render hp
-  let hp_color;
-  if (cannon.hp >= 8) hp_color = COLOR.GREEN;
-  else if (cannon.hp >= 4) hp_color = COLOR.YELLOW;
+  var hp_color;
+  if (cannon.hp >= 8) hp_color = COLOR.GRN;
+  else if (cannon.hp >= 4) hp_color = COLOR.YLW;
   else hp_color = COLOR.RED;
   ctx.fillStyle = hp_color;
 
-  for (let i = 0; i < cannon.hp; i++) {
+  for (var i = 0; i < cannon.hp; i++) {
     ctx.fillRect(hp_x + 12, MAP.h - 12 - (i * 8), 12, -6);
   }
   draw("HP", 2, hp_x + 11, MAP.h - 112);
 
   // render power bar
-  let power_x = (MAP.w - BORDER * 2) * cannon.cannon_multiplier + BORDER;
-  ctx.fillStyle = COLOR.BLACK;
-  ctx.fillRect(power_x, MAP.h - 8, 255 - (cannon.cannon_multiplier * 510), -10);
+  var power_x = (MAP.w - BORDER * 2) * cannon.multiplier + BORDER;
+  ctx.fillStyle = COLOR.BLK;
+  ctx.fillRect(power_x, MAP.h - 8, 255 - (cannon.multiplier * 510), -10);
 
   // render power
-  ctx.fillStyle = COLOR.WHITE;
-  ctx.fillRect(power_x, MAP.h - 8, cannon.power - (cannon.cannon_multiplier * (cannon.power * 2)), -10);
+  ctx.fillStyle = COLOR.WHT;
+  ctx.fillRect(power_x, MAP.h - 8, cannon.power - (cannon.multiplier * (cannon.power * 2)), -10);
 
   // render last power
   if (cannon.last_power) {
-    let last_power_x = BORDER + cannon.last_power;
+    var last_power_x = BORDER + cannon.last_power;
     if (cannon == enemy) last_power_x = MAP.w - last_power_x;
 
     ctx.fillStyle = COLOR.RED;
@@ -191,18 +200,18 @@ function renderCannon(cannon) {
   }
 
   // render 'POWER'
-  let power_text_x = (cannon == player) ? BORDER : MAP.w - BORDER - 42;
+  var power_text_x = (cannon == player) ? BORDER : MAP.w - BORDER - 42;
   draw("Power", 2, power_text_x, MAP.h - 32);
 
   // render IP
-  let p_pow = "192.168.1." + cannon.power;
-  let ip_text_x = (cannon == player) ? BORDER + 255 - (7 * p_pow.length) : MAP.w - BORDER - 255;
+  var p_pow = "192.168.1." + cannon.power;
+  var ip_text_x = (cannon == player) ? BORDER + 255 - (7 * p_pow.length) : MAP.w - BORDER - 255;
   draw(p_pow, 2, ip_text_x, MAP.h - 32);
 }
 
 function renderRouter(router) {
   ctx.lineWidth = 2;
-  ctx.strokeStyle = COLOR.WHITE;
+  ctx.strokeStyle = COLOR.WHT;
   ctx.fillStyle = router.color;
 
   // render circle
@@ -213,8 +222,8 @@ function renderRouter(router) {
   ctx.stroke();
 
   // render icons
-  ctx.fillStyle = COLOR.WHITE;
-  ctx.strokeStyle = COLOR.BLACK;
+  ctx.fillStyle = COLOR.WHT;
+  ctx.strokeStyle = COLOR.BLK;
   ctx.lineWidth = 2;
   ctx.fillRect(router.x - 10, router.y + 7, 4, -5);
   ctx.strokeRect(router.x - 10, router.y + 7, 4, -5);
@@ -222,24 +231,24 @@ function renderRouter(router) {
   ctx.fillRect(router.x - 5, router.y + 7, 4, -8);
   ctx.strokeRect(router.x - 5, router.y + 7, 4, -8);
 
-  if (router.damage == 2) ctx.fillStyle = COLOR.GRAY;
-  ctx.fillRect(router.x - 0, router.y + 7, 4, -11);
-  ctx.strokeRect(router.x - 0, router.y + 7, 4, -11);
+  if (router.damage == 2) ctx.fillStyle = COLOR.GRY;
+  ctx.fillRect(router.x, router.y + 7, 4, -11);
+  ctx.strokeRect(router.x, router.y + 7, 4, -11);
 
-  if (router.damage == 3) ctx.fillStyle = COLOR.GRAY;
+  if (router.damage == 3) ctx.fillStyle = COLOR.GRY;
   ctx.fillRect(router.x + 5, router.y + 7, 4, -14);
   ctx.strokeRect(router.x + 5, router.y + 7, 4, -14);
 }
 
 function renderRouterReset() {
-  let s = reset_in > 1 ? "s" : "";
+  var s = reset_in > 1 ? "s" : "";
   draw("Damage boosters will move in " + reset_in + " turn" + s, 2, BORDER, 0 + 20);
 }
 
 function renderBullet() {
   ctx.beginPath();
   ctx.fillStyle = bullet.color;
-  ctx.strokeStyle = COLOR.WHITE;
+  ctx.strokeStyle = COLOR.WHT;
   ctx.lineWidth = 1;
   ctx.arc(bullet.x, bullet.y, BSIZE, 0, 2*Math.PI);
   ctx.closePath();
@@ -251,20 +260,20 @@ function renderExplosion() {
   ctx.fillStyle = COLOR.RED;
   ctx.fillRect(explosion.x - 2, explosion.y - 10, 4, 20);
   ctx.fillRect(explosion.x - 10, explosion.y - 2, 20, 4);
-  ctx.fillStyle = COLOR.YELLOW;
+  ctx.fillStyle = COLOR.YLW;
   ctx.fillRect(explosion.x - 2, explosion.y - 6, 4, 12);
   ctx.fillRect(explosion.x - 6, explosion.y - 2, 12, 4);
 }
 
 function renderGameOver() {
   // render cable
-  ctx.fillStyle = COLOR.WHITE;
+  ctx.fillStyle = COLOR.WHT;
   ctx.fillRect(MAP.w / 2 - 200, MAP.h / 2 - 3, 150, 6);
   ctx.fillRect(MAP.w / 2 - 50, MAP.h / 2 - 10, 50, 20);
 
   // render port
   ctx.fillRect(MAP.w / 2 + 50, MAP.h / 2 - 90, 120, 180);
-  ctx.fillStyle = COLOR.BLACK;
+  ctx.fillStyle = COLOR.BLK;
   ctx.fillRect(MAP.w / 2 + 95, MAP.h / 2 - 15, 30, 30);
   ctx.fillRect(MAP.w / 2 + 102, MAP.h / 2 - 21, 16, 6);
 
@@ -295,7 +304,7 @@ function render() {
 
     // render routers
     renderRouterReset();
-    for (let i = 0; i < routers.length; i++) {
+    for (var i = 0; i < routers.length; i++) {
       if (routers[i].active) {
         renderRouter(routers[i]);
       }
@@ -340,19 +349,12 @@ function restart() {
   document.removeEventListener('keyup',   keyUp);
   document.addEventListener('keypress', spaceStart, false);
 
-  started   = false;
-  ended     = false;
-  reset_in  = 3;
-  player    = { x: BORDER + 20 + (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 45, power: 0, last_power: 0, cannon_multiplier: 0 };
-  enemy     = { x: MAP.w - BORDER - 20 - (PSIZE / 2), y: MAP.h - BORDER - 20 - (PSIZE / 2), hp: 10, angle: 135, power: 0, last_power: 0, cannon_multiplier: 1, misses: 0 };
-  bullet    = { x: 0, y: 0, dx: 0, dy: 0, color: COLOR.WHITE, damage: 10, active: false, shooter: 0 };
-  explosion = { x: 0, y: 0, frames: 0 };
+  setVariables();
 }
 
 function nextRound() {
   turn = PLAYER;
-
-  resetBullet();
+  bullet.active = false;
 
   reset_in--;
   if (reset_in <= 0) {
@@ -363,19 +365,19 @@ function nextRound() {
 
 function enemyTurn() {
   turn = ENEMY;
-  let r = Math.floor(Math.random() * 3);
-  let miss_chance = Math.max(r*2, 15 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
+  var r = Math.floor(Math.random() * 3);
+  var miss_chance = Math.max(r*2, 15 - (enemy.misses * 2) - ((player.hp - enemy.hp) * 3));
 
-  let a_rand  = Math.floor(Math.random() * (miss_chance / 3));
+  var a_rand  = Math.floor(Math.random() * (miss_chance / 3));
       a_rand -= Math.floor(Math.random() * (miss_chance / 3));
 
-  let p_rand  = Math.floor(Math.random() * miss_chance);
+  var p_rand  = Math.floor(Math.random() * miss_chance);
       p_rand -= Math.floor(Math.random() * miss_chance);
 
   e_shot.angle = 180 - routers[r].angle + a_rand;
   e_shot.power = routers[r].power + p_rand;
 
-  resetBullet();
+  bullet.active = false;
 }
 
 
@@ -387,19 +389,15 @@ function onkey(ev, key, down) {
   }
 }
 
-function resetBullet() {
-  bullet = { x: bullet.x, y: bullet.y, dx: 0, dy: 0, color: COLOR.WHITE, damage: 1, active: false, shooter: 0 };
-}
-
 function fireBullet(shooter, x, y, dx, dy) {
-  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHITE, damage: 1, active: true, shooter: shooter };
+  bullet = { x: x, y: y, dx: dx, dy: dy, color: COLOR.WHT, damage: 1, active: true, shooter: shooter };
   SOUNDS.SHOOT.play();
 }
 
 function generateRouters() {
-  let distance, theta, velocity, power, rx, ry, maxh, min_diff;
-  let angles = [];
-  for (let i = 0; i < routers.length; i++) {
+  var distance, theta, velocity, power, rx, ry, maxh, min_diff;
+  var angles = [];
+  for (var i = 0; i < routers.length; i++) {
     // generate curve angle and calculate power
     do {
       distance = enemy.x - player.x;
@@ -407,7 +405,7 @@ function generateRouters() {
         theta = Math.floor(Math.random() * 75);
 
         min_diff = 75;
-        for (let j = 0; j < angles.length; j++) {
+        for (var j = 0; j < angles.length; j++) {
           diff = Math.abs(theta - angles[j]);
           min_diff = Math.min(diff, min_diff);
         }
@@ -416,13 +414,13 @@ function generateRouters() {
       velocity = Math.sqrt((distance * GRAVITY) / Math.sin(toRad(2 * theta)));
       power = velocity / 2;
 
-      maxh = (velocity**2 * Math.sin(toRad(theta))**2) / (2 * GRAVITY);
+      maxh = (Math.pow(velocity, 2) * Math.pow(Math.sin(toRad(theta)), 2)) / (2 * GRAVITY);
     } while (power > 255 || maxh > MAP.h - (MAP.h - player.y) - BORDER - (routers[i].size) - 5);
 
     angles.push(theta);
 
     rx = Math.floor(Math.random() * 200) + (MAP.w / 2 - 100) - player.x;
-    ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * velocity**2 * Math.cos(toRad(theta))**2)) * rx**2;
+    ry = Math.tan(toRad(theta)) * rx - (GRAVITY / (2 * Math.pow(velocity, 2) * Math.pow(Math.cos(toRad(theta)), 2))) * Math.pow(rx, 2);
 
     routers[i].x = rx + player.x;
     routers[i].y = (MAP.h - ry) - (MAP.h - player.y);
@@ -441,19 +439,19 @@ function collisionDetection() {
   }
 
   // detect collision with routers
-  for (let i = 0; i < routers.length; i++) {
-    let c1 = bullet.x - routers[i].x;
-    let c2 = bullet.y - routers[i].y;
-    if ((c1 ** 2 + c2 ** 2) < (BSIZE + routers[i].size) ** 2)
+  for (var i = 0; i < routers.length; i++) {
+    var c1 = bullet.x - routers[i].x;
+    var c2 = bullet.y - routers[i].y;
+    if ((Math.pow(c1, 2) + Math.pow(c2, 2)) < Math.pow(BSIZE + routers[i].size, 2))
       hitRouter(i);
   }
 
   // detect collision with enemy
   if (bullet.shooter == PLAYER) {
-    let c1 = bullet.x - enemy.x;
-    let c2 = bullet.y - enemy.y;
+    var c1 = bullet.x - enemy.x;
+    var c2 = bullet.y - enemy.y;
 
-    if (c1 ** 2 + c2 ** 2 < (BSIZE + PSIZE)**2) {
+    if (Math.pow(c1, 2) + Math.pow(c2, 2) < Math.pow(BSIZE + PSIZE, 2)) {
       hitEnemy();
       return;
     }
@@ -461,10 +459,10 @@ function collisionDetection() {
 
   // detect collision with player
   if (bullet.shooter == ENEMY) {
-    let c1 = bullet.x - player.x;
-    let c2 = bullet.y - player.y;
+    var c1 = bullet.x - player.x;
+    var c2 = bullet.y - player.y;
 
-    if (c1 ** 2 + c2 ** 2 < (BSIZE + PSIZE)**2) {
+    if (Math.pow(c1, 2) + Math.pow(c2, 2) < Math.pow(BSIZE + PSIZE, 2)) {
       hitPlayer();
       return;
     }
@@ -509,8 +507,8 @@ function update(dt) {
       }
       else if (!player.fire && player.firing) {
         // finish firing
-        let dx = (Math.cos(toRad(player.angle)) * player.power) * 2;
-        let dy = - (Math.sin(toRad(player.angle)) * player.power) * 2;
+        var dx = (Math.cos(toRad(player.angle)) * player.power) * 2;
+        var dy = - (Math.sin(toRad(player.angle)) * player.power) * 2;
         fireBullet(PLAYER, player.x, player.y, dx, dy);
 
         player.last_power = player.power;
@@ -537,8 +535,8 @@ function update(dt) {
         } else if (enemy.power < e_shot.power && enemy.power < 255) {
           enemy.power += 1;
         } else {
-          let dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 2;
-          let dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 2;
+          var dx = (Math.cos(toRad(enemy.angle)) * enemy.power) * 2;
+          var dy = - (Math.sin(toRad(enemy.angle)) * enemy.power) * 2;
           fireBullet(ENEMY, enemy.x, enemy.y, dx, dy);
 
           enemy.last_power = enemy.power;
@@ -612,17 +610,18 @@ function load() {
 
   if (images.size == IMAGES.size) {
     document.addEventListener('keypress', spaceStart, false);
+    setVariables();
     frame(); // start the first frame
   }
 }
 
 function loadImage(src, name) {
   images[name] = document.createElement('img');
-  images[name].addEventListener('load', load() , false);
+  images[name].addEventListener('load', load, false);
   images[name].src = src;
 }
 
 
 
-loadImage(IMAGES.PLAYER_ICON, "player_icon");
+loadImage(IMAGES.CANNON, "cannon");
 loadImage(IMAGES.IE_ICON, "ie_icon");
